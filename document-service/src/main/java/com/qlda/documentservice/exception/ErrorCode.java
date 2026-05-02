@@ -1,0 +1,16 @@
+package com.qlda.documentservice.exception;
+
+public enum ErrorCode {
+    DOCUMENT_NOT_FOUND,
+    DOCUMENT_TYPE_NOT_FOUND,
+    ATTACHMENT_NOT_FOUND,
+    TEMPLATE_NOT_FOUND,
+    CASE_FILE_NOT_FOUND,
+    DUPLICATE_DOCUMENT_NUMBER,
+    FILE_UPLOAD_FAILED,
+    OCR_FAILED,
+    FORBIDDEN,
+    INTERNAL_SERVER_ERROR,
+    INVALID_REQUEST
+}
+
