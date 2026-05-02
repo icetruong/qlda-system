@@ -1,5 +1,6 @@
 package com.qlda.authservice;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qlda.authservice.entity.DonVi;
 import com.qlda.authservice.entity.NguoiDung;
@@ -92,6 +93,21 @@ class AuthApiIntegrationTest {
     }
 
     @Test
+    void loginShouldReturnBadRequestWhenPayloadInvalid() throws Exception {
+        String payload = objectMapper.writeValueAsString(Map.of(
+                "username", "",
+                "password", ""
+        ));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorCode").value("INVALID_REQUEST"));
+    }
+
+    @Test
     void protectedEndpointShouldReturn401WithoutToken() throws Exception {
         mockMvc.perform(get("/api/auth/me"))
                 .andExpect(status().isUnauthorized())
@@ -100,7 +116,69 @@ class AuthApiIntegrationTest {
     }
 
     @Test
+    void protectedEndpointShouldReturn401WithInvalidToken() throws Exception {
+        mockMvc.perform(get("/api/auth/me")
+                        .header("Authorization", "Bearer invalid-token"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorCode").value("UNAUTHORIZED"));
+    }
+
+    @Test
     void meEndpointShouldReturnCurrentUserWhenTokenProvided() throws Exception {
+        JsonNode loginData = loginAndGetTokenData();
+        String accessToken = loginData.path("accessToken").asText();
+
+        mockMvc.perform(get("/api/auth/me")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.username").value("admin"));
+    }
+
+    @Test
+    void refreshTokenShouldReturnNewTokens() throws Exception {
+        JsonNode loginData = loginAndGetTokenData();
+        String accessToken = loginData.path("accessToken").asText();
+        String refreshToken = loginData.path("refreshToken").asText();
+        String payload = objectMapper.writeValueAsString(Map.of("refreshToken", refreshToken));
+
+        mockMvc.perform(post("/api/auth/refresh-token")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.data.refreshToken").isNotEmpty());
+    }
+
+    @Test
+    void logoutShouldRevokeRefreshToken() throws Exception {
+        JsonNode loginData = loginAndGetTokenData();
+        String accessToken = loginData.path("accessToken").asText();
+        String refreshToken = loginData.path("refreshToken").asText();
+        String logoutPayload = objectMapper.writeValueAsString(Map.of("refreshToken", refreshToken));
+
+        mockMvc.perform(post("/api/auth/logout")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(logoutPayload))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        String refreshPayload = objectMapper.writeValueAsString(Map.of("refreshToken", refreshToken));
+        mockMvc.perform(post("/api/auth/refresh-token")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(refreshPayload))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorCode").value("UNAUTHORIZED"))
+                .andExpect(jsonPath("$.message").value("Invalid refresh token"));
+    }
+
+    private JsonNode loginAndGetTokenData() throws Exception {
         String payload = objectMapper.writeValueAsString(Map.of(
                 "username", "admin",
                 "password", "123456"
@@ -108,16 +186,10 @@ class AuthApiIntegrationTest {
         String loginResponse = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
+                .andExpect(status().isOk())
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
-
-        String accessToken = objectMapper.readTree(loginResponse).path("data").path("accessToken").asText();
-
-        mockMvc.perform(get("/api/auth/me")
-                        .header("Authorization", "Bearer " + accessToken))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.username").value("admin"));
+        return objectMapper.readTree(loginResponse).path("data");
     }
 }
