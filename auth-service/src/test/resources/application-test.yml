@@ -1,0 +1,31 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:authdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  cloud:
+    compatibility-verifier:
+      enabled: false
+
+eureka:
+  client:
+    enabled: false
+
+auth:
+  jwt:
+    issuer: auth-service-test
+    secret: test-secret-key-test-secret-key-test-secret-key-123
+    access-token-seconds: 3600
+    refresh-token-seconds: 7200
+  dev-password:
+    enabled: true
+    value: 123456
+  backup:
+    directory: ./target/test-backups

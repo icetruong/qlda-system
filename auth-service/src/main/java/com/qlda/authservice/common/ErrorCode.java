@@ -1,0 +1,16 @@
+package com.qlda.authservice.common;
+
+public enum ErrorCode {
+    INVALID_REQUEST,
+    UNAUTHORIZED,
+    FORBIDDEN,
+    USER_NOT_FOUND,
+    ROLE_NOT_FOUND,
+    PERMISSION_NOT_FOUND,
+    DUPLICATE_USERNAME,
+    DUPLICATE_EMAIL,
+    INVALID_LOGIN,
+    AZURE_AUTH_FAILED,
+    AUDIT_LOG_NOT_FOUND,
+    INTERNAL_SERVER_ERROR
+}

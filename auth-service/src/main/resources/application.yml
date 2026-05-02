@@ -1,0 +1,61 @@
+spring:
+  application:
+    name: auth-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/qlda}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  jackson:
+    time-zone: Asia/Bangkok
+  cloud:
+    compatibility-verifier:
+      enabled: false
+
+server:
+  port: ${SERVER_PORT:8081}
+
+eureka:
+  client:
+    enabled: ${EUREKA_ENABLED:false}
+
+auth:
+  jwt:
+    issuer: ${AUTH_JWT_ISSUER:auth-service}
+    secret: ${AUTH_JWT_SECRET:}
+    access-token-seconds: ${AUTH_JWT_ACCESS_SECONDS:3600}
+    refresh-token-seconds: ${AUTH_JWT_REFRESH_SECONDS:604800}
+  dev-password:
+    enabled: ${AUTH_DEV_PASSWORD_ENABLED:true}
+    value: ${AUTH_DEV_PASSWORD_VALUE:123456}
+  backup:
+    directory: ${AUTH_BACKUP_DIRECTORY:./backups}
+  azure:
+    tenant-id: ${AZURE_TENANT_ID:}
+    client-id: ${AZURE_CLIENT_ID:}
+    client-secret: ${AZURE_CLIENT_SECRET:}
+  office365:
+    tenant-id: ${OFFICE365_TENANT_ID:}
+    client-id: ${OFFICE365_CLIENT_ID:}
+    client-secret: ${OFFICE365_CLIENT_SECRET:}
+    share-point: ${OFFICE365_SHAREPOINT:}
+    teams: ${OFFICE365_TEAMS:}
+    outlook: ${OFFICE365_OUTLOOK:}
+  security-policy:
+    session-timeout-minutes: ${SECURITY_SESSION_TIMEOUT_MINUTES:30}
+    max-login-attempts: ${SECURITY_MAX_LOGIN_ATTEMPTS:5}
+    require-authentication: ${SECURITY_REQUIRE_AUTHENTICATION:true}
+    enable-cors: ${SECURITY_ENABLE_CORS:true}
+    enable-ip-whitelist: ${SECURITY_ENABLE_IP_WHITELIST:false}
+  system-config:
+    app-name: ${SYSTEM_APP_NAME:QLVB System}
+    environment: ${SYSTEM_ENVIRONMENT:dev}
+    max-upload-file-size: ${SYSTEM_MAX_UPLOAD_FILE_SIZE:20MB}
+    backup-enabled: ${SYSTEM_BACKUP_ENABLED:true}
