@@ -6,7 +6,6 @@ import com.qlda.authservice.dto.auth.AuthTokenResponse;
 import com.qlda.authservice.dto.auth.AuthUserResponse;
 import com.qlda.authservice.dto.auth.AzureLoginRequest;
 import com.qlda.authservice.dto.auth.CurrentUserResponse;
-import com.qlda.authservice.dto.auth.LoginRequest;
 import com.qlda.authservice.dto.auth.LogoutRequest;
 import com.qlda.authservice.dto.auth.RefreshTokenRequest;
 import com.qlda.authservice.dto.auth.RefreshTokenResponse;
@@ -53,22 +52,6 @@ public class AuthService {
         this.azureAuthService = azureAuthService;
         this.authProperties = authProperties;
         this.auditLogService = auditLogService;
-    }
-
-    public AuthTokenResponse login(LoginRequest request, String ipAddress) {
-        NguoiDung user = userService.findActiveUserByUsername(request.username().trim());
-        if (!isPasswordValid(request.password())) {
-            throw new ApiException(HttpStatus.UNAUTHORIZED, ErrorCode.INVALID_LOGIN, "Invalid username or password");
-        }
-
-        user.setLanDangNhapCuoi(LocalDateTime.now());
-        user.setNgayCapNhat(LocalDateTime.now());
-        nguoiDungRepository.save(user);
-
-        AuthTokenResponse response = issueAuthTokenResponse(user);
-        auditLogService.log(user.getId(), user.getHoTen(), "LOGIN", "NguoiDung",
-                user.getId(), "User login", ipAddress, 1);
-        return response;
     }
 
     public AuthTokenResponse loginAzure(AzureLoginRequest request, String ipAddress) {
@@ -176,13 +159,6 @@ public class AuthService {
                         resolveRoles(user)
                 )
         );
-    }
-
-    private boolean isPasswordValid(String password) {
-        // TODO: replace dev-password validation with real password hash column when DB supports it.
-        AuthProperties.DevPassword devPassword = authProperties.getDevPassword();
-        return devPassword.isEnabled() && StringUtils.hasText(devPassword.getValue())
-                && devPassword.getValue().equals(password);
     }
 
     private List<String> resolveRoles(NguoiDung user) {

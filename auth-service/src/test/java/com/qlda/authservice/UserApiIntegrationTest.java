@@ -8,6 +8,7 @@ import com.qlda.authservice.repository.DonViRepository;
 import com.qlda.authservice.repository.NguoiDungRepository;
 import com.qlda.authservice.repository.NhomQuyenRepository;
 import com.qlda.authservice.repository.PhanQuyenRepository;
+import com.qlda.authservice.security.JwtService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +43,8 @@ class UserApiIntegrationTest {
     private NhomQuyenRepository nhomQuyenRepository;
     @Autowired
     private PhanQuyenRepository phanQuyenRepository;
+    @Autowired
+    private JwtService jwtService;
 
     private Integer donViId;
     private Integer nhomQuyenId;
@@ -135,18 +138,8 @@ class UserApiIntegrationTest {
     }
 
     private String loginAndGetAccessToken() throws Exception {
-        String payload = objectMapper.writeValueAsString(Map.of(
-                "username", "admin",
-                "password", "123456"
-        ));
-        String loginResponse = mockMvc.perform(post("/api/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(payload))
-                .andExpect(status().isOk())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-        return objectMapper.readTree(loginResponse).path("data").path("accessToken").asText();
+        NguoiDung user = nguoiDungRepository.findByUserName("admin").orElseThrow();
+        return jwtService.generateAccessToken(user);
     }
 
     private Map<String, Object> buildCreateUserPayload(String username, String email) {

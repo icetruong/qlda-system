@@ -5,7 +5,6 @@ import com.qlda.authservice.config.AuthProperties;
 import com.qlda.authservice.dto.auth.AuthTokenResponse;
 import com.qlda.authservice.dto.auth.AzureLoginRequest;
 import com.qlda.authservice.dto.auth.CurrentUserResponse;
-import com.qlda.authservice.dto.auth.LoginRequest;
 import com.qlda.authservice.dto.auth.LogoutRequest;
 import com.qlda.authservice.dto.auth.RefreshTokenRequest;
 import com.qlda.authservice.dto.auth.RefreshTokenResponse;
@@ -30,11 +29,9 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -78,41 +75,6 @@ class AuthServiceTest {
     @AfterEach
     void tearDown() {
         SecurityContextHolder.clearContext();
-    }
-
-    @Test
-    void loginShouldReturnTokenWhenCredentialsValid() {
-        NguoiDung user = buildActiveUser();
-        when(userService.findActiveUserByUsername("admin")).thenReturn(user);
-        when(jwtService.generateAccessToken(user)).thenReturn("access-token");
-        when(jwtService.generateRefreshToken(user)).thenReturn("refresh-token");
-        when(jwtService.getAccessTokenSeconds()).thenReturn(3600L);
-
-        AuthTokenResponse response = authService.login(new LoginRequest("admin", "123456"), "127.0.0.1");
-
-        assertEquals("access-token", response.accessToken());
-        assertEquals("refresh-token", response.refreshToken());
-        assertEquals("Bearer", response.tokenType());
-        assertEquals(3600L, response.expiresIn());
-        assertNotNull(response.user());
-        assertEquals("admin", response.user().username());
-        verify(nguoiDungRepository).save(user);
-        verify(refreshTokenStoreService).save(eq("refresh-token"), eq(1L), eq("admin"), any(Instant.class));
-        verify(auditLogService).log(eq(1L), eq("Admin User"), eq("LOGIN"), eq("NguoiDung"),
-                eq(1L), eq("User login"), eq("127.0.0.1"), eq(1));
-    }
-
-    @Test
-    void loginShouldThrowUnauthorizedWhenPasswordInvalid() {
-        NguoiDung user = buildActiveUser();
-        when(userService.findActiveUserByUsername("admin")).thenReturn(user);
-
-        ApiException exception = assertThrows(ApiException.class,
-                () -> authService.login(new LoginRequest("admin", "wrong"), "127.0.0.1"));
-
-        assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatus());
-        assertEquals(ErrorCode.INVALID_LOGIN, exception.getErrorCode());
-        verify(jwtService, never()).generateAccessToken(any());
     }
 
     @Test

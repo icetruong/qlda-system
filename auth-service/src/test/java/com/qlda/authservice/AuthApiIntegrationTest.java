@@ -2,6 +2,7 @@ package com.qlda.authservice;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.qlda.authservice.config.AuthProperties;
 import com.qlda.authservice.entity.DonVi;
 import com.qlda.authservice.entity.NguoiDung;
 import com.qlda.authservice.entity.NhomQuyen;
@@ -9,6 +10,9 @@ import com.qlda.authservice.repository.DonViRepository;
 import com.qlda.authservice.repository.NguoiDungRepository;
 import com.qlda.authservice.repository.NhomQuyenRepository;
 import com.qlda.authservice.repository.PhanQuyenRepository;
+import com.qlda.authservice.security.JwtService;
+import com.qlda.authservice.service.RefreshTokenStoreService;
+import java.time.Instant;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,6 +51,15 @@ class AuthApiIntegrationTest {
     @Autowired
     private PhanQuyenRepository phanQuyenRepository;
 
+    @Autowired
+    private JwtService jwtService;
+
+    @Autowired
+    private RefreshTokenStoreService refreshTokenStoreService;
+
+    @Autowired
+    private AuthProperties authProperties;
+
     @BeforeEach
     void setupData() {
         phanQuyenRepository.deleteAll();
@@ -74,37 +87,6 @@ class AuthApiIntegrationTest {
         user.setNhomQuyen(savedNhomQuyen);
         user.setTrangThai(1);
         nguoiDungRepository.save(user);
-    }
-
-    @Test
-    void loginShouldReturnTokens() throws Exception {
-        String payload = objectMapper.writeValueAsString(Map.of(
-                "username", "admin",
-                "password", "123456"
-        ));
-
-        mockMvc.perform(post("/api/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(payload))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
-                .andExpect(jsonPath("$.data.refreshToken").isNotEmpty());
-    }
-
-    @Test
-    void loginShouldReturnBadRequestWhenPayloadInvalid() throws Exception {
-        String payload = objectMapper.writeValueAsString(Map.of(
-                "username", "",
-                "password", ""
-        ));
-
-        mockMvc.perform(post("/api/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(payload))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.errorCode").value("INVALID_REQUEST"));
     }
 
     @Test
@@ -178,18 +160,19 @@ class AuthApiIntegrationTest {
                 .andExpect(jsonPath("$.message").value("Invalid refresh token"));
     }
 
-    private JsonNode loginAndGetTokenData() throws Exception {
-        String payload = objectMapper.writeValueAsString(Map.of(
-                "username", "admin",
-                "password", "123456"
+    private JsonNode loginAndGetTokenData() {
+        NguoiDung user = nguoiDungRepository.findByUserName("admin").orElseThrow();
+        String accessToken = jwtService.generateAccessToken(user);
+        String refreshToken = jwtService.generateRefreshToken(user);
+        refreshTokenStoreService.save(
+                refreshToken,
+                user.getId(),
+                user.getUserName(),
+                Instant.now().plusSeconds(authProperties.getJwt().getRefreshTokenSeconds())
+        );
+        return objectMapper.valueToTree(Map.of(
+                "accessToken", accessToken,
+                "refreshToken", refreshToken
         ));
-        String loginResponse = mockMvc.perform(post("/api/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(payload))
-                .andExpect(status().isOk())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-        return objectMapper.readTree(loginResponse).path("data");
     }
 }

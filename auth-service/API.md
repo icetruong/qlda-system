@@ -12,7 +12,6 @@ PHẦN I. API QUẢN TRỊ, BẢO MẬT VÀ HẠ TẦNG CLOUD
    Ví dụ:
    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
    Các API không cần token:
-   POST /api/auth/login
    POST /api/auth/login/azure
 3. Định dạng dữ liệu
    Request
@@ -206,7 +205,6 @@ PHẦN I. API QUẢN TRỊ, BẢO MẬT VÀ HẠ TẦNG CLOUD
    6.2. Xác thực Azure AD
    Chức năng này phục vụ đăng nhập bằng Office 365, xác thực qua Azure AD, đồng bộ thông tin người dùng và đăng xuất theo yêu cầu chức năng số 2.
    6.2.1. Đăng nhập thường
-   POST /api/auth/login
    Request
    {
    "username": "admin",
@@ -562,7 +560,6 @@ Response
 
 Tóm tắt API
 
-POST   /api/auth/login
 POST   /api/auth/login/azure
 POST   /api/auth/logout
 POST   /api/auth/refresh-token
