@@ -18,8 +18,6 @@ public interface InternalDocumentService {
 
     InternalDocumentResponses.UpdateWorkflowStatusResponse updateWorkflowStatus(Long id, InternalDocumentRequests.UpdateWorkflowStatusRequest request);
 
-    InternalDocumentResponses.SaveAiResultResponse saveAiResult(Long id, InternalDocumentRequests.SaveAiResultRequest request);
-
     InternalDocumentResponses.UpdateOcrStatusResponse updateOcrStatus(Long id, InternalDocumentRequests.UpdateOcrStatusRequest request);
 
     InternalDocumentResponses.InternalDocumentStatisticsResponse getStatistics(

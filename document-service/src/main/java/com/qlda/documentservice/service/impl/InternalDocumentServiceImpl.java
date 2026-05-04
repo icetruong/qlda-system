@@ -16,7 +16,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,7 +25,6 @@ public class InternalDocumentServiceImpl implements InternalDocumentService {
 
     private final VanBanRepository vanBanRepository;
     private final TepDinhKemRepository tepDinhKemRepository;
-    private final AtomicLong aiResultSequence = new AtomicLong(1);
 
     public InternalDocumentServiceImpl(VanBanRepository vanBanRepository, TepDinhKemRepository tepDinhKemRepository) {
         this.vanBanRepository = vanBanRepository;
@@ -113,15 +111,6 @@ public class InternalDocumentServiceImpl implements InternalDocumentService {
         vanBanRepository.save(vanBan);
         // TODO: Current schema has no workflowStatus/currentStep/processingId fields.
         return new InternalDocumentResponses.UpdateWorkflowStatusResponse(vanBan.getId(), request.workflowStatus(), request.processingId());
-    }
-
-    @Override
-    @Transactional
-    public InternalDocumentResponses.SaveAiResultResponse saveAiResult(Long id, InternalDocumentRequests.SaveAiResultRequest request) {
-        getDocumentOrThrow(id);
-        // TODO: Current schema has no AI result table/columns. Keep temporary generated id for integration flow.
-        long aiResultId = aiResultSequence.getAndIncrement();
-        return new InternalDocumentResponses.SaveAiResultResponse(id, aiResultId, request.loaiXuLyAI());
     }
 
     @Override

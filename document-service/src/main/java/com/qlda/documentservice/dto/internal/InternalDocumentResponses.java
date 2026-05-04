@@ -50,9 +50,6 @@ public final class InternalDocumentResponses {
     public record UpdateWorkflowStatusResponse(Long documentId, String workflowStatus, Long processingId) {
     }
 
-    public record SaveAiResultResponse(Long documentId, Long aiResultId, String loaiXuLyAI) {
-    }
-
     public record UpdateOcrStatusResponse(Long documentId, Boolean daOCR) {
     }
 

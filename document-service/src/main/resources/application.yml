@@ -42,7 +42,7 @@ services:
   ai-service:
     base-url: ${AI_SERVICE_URL:http://localhost:8084}
   notification-service:
-    base-url: ${NOTIFICATION_SERVICE_URL:http://localhost:8085}
+    topic: ${NOTIFICATION_EVENTS_TOPIC:notification-events}
 
 internal:
   auth:

@@ -199,119 +199,72 @@ Dùng khi:
 Xem lịch sử xử lý văn bản
 Xem tiến trình luân chuyển văn bản
 
-4.1.3. document-service gọi ai-service
-Mục đích:
-OCR file văn bản
-Tóm tắt văn bản
-Phân loại văn bản
-Trích xuất metadata
-Gợi ý hướng xử lý
-
-API 1: OCR nội bộ
-POST /internal/ai/ocr
-Trả về:
-{
-"documentId": 1,
-"ocrText": "Nội dung văn bản sau OCR...",
-"confidence": 92.5,
-"modelUsed": "ocr-model"
-}
-Sau khi nhận kết quả, document-service lưu OCR bằng:
-PATCH /internal/documents/{id}/ocr-status
-
-API 2: Tóm tắt văn bản
-POST /internal/ai/summarize
-Trả về:
-{
-"documentId": 1,
-"summaryType": "SHORT",
-"summary": "Văn bản đề cập đến việc triển khai hệ thống xử lý văn bản điện tử.",
-"confidence": 91.5,
-"modelUsed": "gpt-4.1"
-}
-Sau khi nhận kết quả, document-service lưu vào AI result.
-
-API 3: Phân loại văn bản
-POST /internal/ai/classify
-Trả về:
-{
-"documentId": 1,
-"category": "CONG_VAN",
-"categoryName": "Công văn",
-"confidence": 94.2,
-"reason": "Nội dung phù hợp với cấu trúc công văn."
-}
-Dùng khi:
-Tự động phân loại văn bản đến
-Gợi ý loại văn bản khi upload file
-
-API 4: Trích xuất metadata
-POST /internal/ai/metadata/extract
-Trả về:
-{
-"documentId": 1,
-"metadata": {
-"soKyHieu": "123/CV-ABC",
-"ngayVanBan": "2026-04-30",
-"donViBanHanh": "Sở Thông tin và Truyền thông",
-"nguoiKy": "Nguyễn Văn A"
-},
-"confidence": 90.6,
-"modelUsed": "gpt-4.1"
-}
-Dùng khi:
-Tự điền thông tin văn bản
-Trích xuất số ký hiệu, ngày văn bản, đơn vị ban hành, người ký
-
-API 5: Gợi ý xử lý
-POST /internal/ai/suggestions
-Trả về:
-{
-"documentId": 1,
-"suggestions": [
-{
-"action": "CHUYEN_XU_LY",
-"description": "Chuyển văn bản cho Phòng Hành chính xử lý trong vòng 24 giờ.",
-"priority": "HIGH"
-}
-],
-"confidence": 87.3
-}
-Dùng khi:
-Gợi ý chuyển xử lý
-Gợi ý độ ưu tiên
-Gợi ý hướng xử lý cho lãnh đạo/chuyên viên
-
-4.1.4. document-service gọi notification-service
+4.1.4. document-service gửi notification event qua Kafka
+document-service không gọi trực tiếp notification-service bằng REST API. Khi phát sinh nghiệp vụ cần thông báo, document-service publish event vào Kafka để notification-service consume và xử lý.
 Mục đích:
 Gửi thông báo khi có văn bản mới
 Gửi thông báo khi chuyển xử lý
 Gửi thông báo khi trình ký
 Gửi thông báo khi phát hành văn bản
-
-API 1: Gửi một thông báo
-POST /internal/notifications/send
-Trả về:
+Kafka topic:
+notification-events
+Event mẫu: thông báo một người
 {
-"notificationId": 1,
-"nguoiNhanId": 2,
-"sentChannels": ["SYSTEM", "EMAIL"]
+"eventId": "evt-001",
+"eventType": "DOCUMENT_CREATED",
+"sourceService": "document-service",
+"nguoiNhanIds": [2],
+"tieuDe": "Thông báo văn bản mới",
+"noiDung": "Bạn có văn bản mới cần xử lý",
+"loaiThongBao": "VAN_BAN",
+"kenhGui": ["SYSTEM", "EMAIL"],
+"referenceType": "DOCUMENT",
+"referenceId": 1,
+"metadata": {
+"documentId": 1,
+"soKyHieu": "123/CV-ABC",
+"trichYeu": "Văn bản triển khai hệ thống"
+},
+"createdAt": "2026-04-30T10:00:00"
 }
-
-API 2: Gửi nhiều thông báo
-POST /internal/notifications/bulk-send
-Trả về:
+Event mẫu: thông báo nhiều người
 {
-"totalReceivers": 3,
-"totalSent": 3,
-"sentChannels": ["SYSTEM", "EMAIL"]
+"eventId": "evt-002",
+"eventType": "DOCUMENT_PUBLISHED",
+"sourceService": "document-service",
+"nguoiNhanIds": [2, 3, 4],
+"tieuDe": "Văn bản đã được phát hành",
+"noiDung": "Một văn bản mới đã được phát hành đến bạn",
+"loaiThongBao": "PHAT_HANH_VAN_BAN",
+"kenhGui": ["SYSTEM", "EMAIL"],
+"referenceType": "DOCUMENT",
+"referenceId": 1,
+"metadata": {
+"documentId": 1,
+"ngayPhatHanh": "2026-04-30"
+},
+"createdAt": "2026-04-30T10:00:00"
 }
+Kết quả xử lý:
+document-service chỉ publish event thành công vào Kafka.
+notification-service tự consume event, lưu thông báo vào DB và gửi qua các kênh tương ứng.
+Nếu gửi thông báo lỗi, không làm rollback nghiệp vụ tạo/chuyển/phát hành văn bản
 
 
 7.3. Internal API của document-service
-Các service gọi đến: workflow-service, ai-service, report-service.
+Các service gọi đến document-service:
+workflow-service
+ai-service
+report-service
+document-service chỉ quản lý dữ liệu văn bản, file, trạng thái văn bản và thông tin nghiệp vụ văn bản.
+document-service không quản lý AI-result.
+
 7.3.1. Lấy thông tin văn bản
 GET /internal/documents/{id}
+Dùng cho:
+workflow-service lấy thông tin văn bản khi xử lý workflow
+ai-service lấy metadata văn bản trước khi xử lý AI
+report-service lấy thông tin văn bản nếu cần tổng hợp
 Response:
 {
 "success": true,
@@ -331,10 +284,14 @@ Response:
 "daKySo": false
 }
 }
-Dùng cho workflow-service khi xử lý theo documentId.
 
 7.3.2. Lấy nội dung văn bản cho AI
 GET /internal/documents/{id}/content
+Dùng cho:
+ai-service lấy nội dung để tóm tắt
+ai-service lấy nội dung để phân loại
+ai-service lấy nội dung để trích xuất metadata
+ai-service lấy nội dung để gợi ý xử lý
 Response:
 {
 "success": true,
@@ -347,9 +304,16 @@ Response:
 "language": "vi"
 }
 }
+Ghi chú:
+Nếu OCR-result lưu ở ai-service, trường ocrText có thể bỏ.
+Nếu document-service vẫn lưu nội dung OCR phục vụ tìm kiếm nhanh thì có thể giữ.
 
 7.3.3. Lấy file đính kèm của văn bản
 GET /internal/documents/{id}/attachments
+Dùng cho:
+ai-service lấy file để OCR
+ai-service lấy file để tóm tắt từ file
+ai-service lấy file để trích xuất metadata từ file
 Response:
 {
 "success": true,
@@ -367,6 +331,8 @@ Response:
 
 7.3.4. Cập nhật trạng thái văn bản
 PATCH /internal/documents/{id}/status
+Service gọi:
+workflow-service
 Request:
 {
 "trangThai": 3,
@@ -385,6 +351,8 @@ Response:
 
 7.3.5. Cập nhật người đang xử lý
 PATCH /internal/documents/{id}/assignee
+Service gọi:
+workflow-service
 Request:
 {
 "nguoiXuLyId": 2,
@@ -404,6 +372,8 @@ Response:
 
 7.3.6. Cập nhật trạng thái workflow của văn bản
 PATCH /internal/documents/{id}/workflow-status
+Service gọi:
+workflow-service
 Request:
 {
 "workflowStatus": "PROCESSING",
@@ -421,34 +391,17 @@ Response:
 }
 }
 
-7.3.7. Lưu kết quả AI vào văn bản
-POST /internal/documents/{id}/ai-results
-Request:
-{
-"loaiXuLyAI": "SUMMARY",
-"noiDungDauVao": "Nội dung văn bản...",
-"ketQuaTraVe": "Tóm tắt văn bản...",
-"doTinCay": 91.5,
-"modelSuDung": "gpt-4.1"
-}
-Response:
-{
-"success": true,
-"message": "Save document AI result successfully",
-"data": {
-"documentId": 1,
-"aiResultId": 10,
-"loaiXuLyAI": "SUMMARY"
-}
-}
-
-7.3.8. Cập nhật trạng thái OCR
+7.3.7. Cập nhật trạng thái OCR của văn bản
 PATCH /internal/documents/{id}/ocr-status
+Service gọi:
+ai-service
+Dùng khi:
+ai-service OCR xong và cần báo lại document-service rằng văn bản đã OCR
+document-service chỉ lưu cờ trạng thái daOCR
+AI-result và nội dung OCR chi tiết vẫn lưu trong DB của ai-service
 Request:
 {
-"daOCR": true,
-"ocrText": "Nội dung sau OCR...",
-"confidence": 92.5
+"daOCR": true
 }
 Response:
 {
@@ -459,8 +412,11 @@ Response:
 "daOCR": true
 }
 }
+Ghi chú:
+Không lưu ocrText ở document-service nếu AI-result đã thuộc ai-service.
+Nếu muốn tìm kiếm nhanh bằng OCR text ở document-service thì có thể bổ sung sau.
 
-7.3.9. API thống kê văn bản cho report-service
+7.3.8. API thống kê văn bản cho report-service
 GET /internal/documents/statistics
 Query params:
 fromDate=2026-04-01
@@ -484,7 +440,7 @@ Response:
 }
 }
 
-7.3.10. Lấy văn bản trễ hạn
+7.3.9. Lấy văn bản trễ hạn
 GET /internal/documents/overdue
 Query params:
 donViId=1

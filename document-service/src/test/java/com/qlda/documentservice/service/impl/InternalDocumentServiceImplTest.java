@@ -109,7 +109,7 @@ class InternalDocumentServiceImplTest {
 
         InternalDocumentResponses.UpdateOcrStatusResponse response = service.updateOcrStatus(
             5L,
-            new InternalDocumentRequests.UpdateOcrStatusRequest(true, "ocr", 92.5)
+            new InternalDocumentRequests.UpdateOcrStatusRequest(true)
         );
 
         assertThat(response.daOCR()).isTrue();

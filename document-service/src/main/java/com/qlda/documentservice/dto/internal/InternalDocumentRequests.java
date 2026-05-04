@@ -28,19 +28,8 @@ public final class InternalDocumentRequests {
     ) {
     }
 
-    public record SaveAiResultRequest(
-        @NotNull(message = "loaiXuLyAI is required") String loaiXuLyAI,
-        String noiDungDauVao,
-        String ketQuaTraVe,
-        Double doTinCay,
-        String modelSuDung
-    ) {
-    }
-
     public record UpdateOcrStatusRequest(
-        @NotNull(message = "daOCR is required") Boolean daOCR,
-        String ocrText,
-        Double confidence
+        @NotNull(message = "daOCR is required") Boolean daOCR
     ) {
     }
 }

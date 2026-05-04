@@ -11,7 +11,6 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -76,14 +75,6 @@ public class InternalDocumentController {
             "Update document workflow status successfully",
             internalDocumentService.updateWorkflowStatus(id, request)
         );
-    }
-
-    @PostMapping("/{id}/ai-results")
-    public ApiResponse<InternalDocumentResponses.SaveAiResultResponse> saveAiResults(
-        @PathVariable Long id,
-        @Valid @RequestBody InternalDocumentRequests.SaveAiResultRequest request
-    ) {
-        return ApiResponse.success("Save document AI result successfully", internalDocumentService.saveAiResult(id, request));
     }
 
     @PatchMapping("/{id}/ocr-status")

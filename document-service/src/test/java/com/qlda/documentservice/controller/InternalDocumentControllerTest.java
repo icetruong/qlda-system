@@ -5,7 +5,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -32,7 +31,8 @@ import org.springframework.test.web.servlet.MockMvc;
 @ActiveProfiles("test")
 @TestPropertySource(properties = {
     "internal.auth.service-token=internal-token",
-    "internal.auth.allowed-services[0]=workflow-service"
+    "internal.auth.allowed-services[0]=workflow-service",
+    "internal.auth.allowed-services[1]=ai-service"
 })
 class InternalDocumentControllerTest {
 
@@ -128,32 +128,16 @@ class InternalDocumentControllerTest {
     }
 
     @Test
-    void saveAiResults_shouldReturnSuccess() throws Exception {
-        when(internalDocumentService.saveAiResult(eq(7L), any(InternalDocumentRequests.SaveAiResultRequest.class)))
-            .thenReturn(new InternalDocumentResponses.SaveAiResultResponse(7L, 11L, "SUMMARY"));
-
-        mockMvc.perform(post("/internal/documents/7/ai-results")
-                .header("Authorization", "Bearer internal-token")
-                .header("X-Service-Name", "workflow-service")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                    {"loaiXuLyAI":"SUMMARY","noiDungDauVao":"a","ketQuaTraVe":"b","doTinCay":91.5,"modelSuDung":"gpt-4.1"}
-                    """))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.data.aiResultId").value(11L));
-    }
-
-    @Test
     void updateOcrStatus_shouldReturnSuccess() throws Exception {
         when(internalDocumentService.updateOcrStatus(eq(8L), any(InternalDocumentRequests.UpdateOcrStatusRequest.class)))
             .thenReturn(new InternalDocumentResponses.UpdateOcrStatusResponse(8L, true));
 
         mockMvc.perform(patch("/internal/documents/8/ocr-status")
                 .header("Authorization", "Bearer internal-token")
-                .header("X-Service-Name", "workflow-service")
+                .header("X-Service-Name", "ai-service")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                    {"daOCR":true,"ocrText":"text","confidence":92.5}
+                    {"daOCR":true}
                     """))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.daOCR").value(true));
