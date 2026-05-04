@@ -1,4 +1,4 @@
-package com.qlda.ai_service.exception;
+package com.qlda.aiservice.exception;
 
 public class GeminiRateLimitException extends RuntimeException {
 

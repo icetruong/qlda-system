@@ -1,4 +1,4 @@
-package com.qlda.ai_service.config;
+package com.qlda.aiservice.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;

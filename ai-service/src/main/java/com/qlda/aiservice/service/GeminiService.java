@@ -1,7 +1,7 @@
-package com.qlda.ai_service.service;
+package com.qlda.aiservice.service;
 
-import com.qlda.ai_service.config.GeminiConfig;
-import com.qlda.ai_service.exception.GeminiRateLimitException;
+import com.qlda.aiservice.config.GeminiConfig;
+import com.qlda.aiservice.exception.GeminiRateLimitException;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -1,10 +1,10 @@
-package com.qlda.ai_service.controller;
+package com.qlda.aiservice.controller;
 
-import com.qlda.ai_service.dto.ChatRequest;
-import com.qlda.ai_service.dto.ChatResponse;
-import com.qlda.ai_service.exception.GeminiRateLimitException;
-import com.qlda.ai_service.service.GeminiService;
-import com.qlda.ai_service.service.RateLimiterService;
+import com.qlda.aiservice.dto.ChatRequest;
+import com.qlda.aiservice.dto.ChatResponse;
+import com.qlda.aiservice.exception.GeminiRateLimitException;
+import com.qlda.aiservice.service.GeminiService;
+import com.qlda.aiservice.service.RateLimiterService;
 import io.github.bucket4j.ConsumptionProbe;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;

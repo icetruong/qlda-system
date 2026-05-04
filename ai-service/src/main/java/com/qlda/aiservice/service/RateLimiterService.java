@@ -1,4 +1,4 @@
-package com.qlda.ai_service.service;
+package com.qlda.aiservice.service;
 
 import io.github.bucket4j.*;
 import org.springframework.beans.factory.annotation.Value;

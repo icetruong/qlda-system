@@ -1,5 +1,5 @@
 // dto/ChatRequest.java
-package com.qlda.ai_service.dto;
+package com.qlda.aiservice.dto;
 
 import lombok.Data;
 

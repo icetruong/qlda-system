@@ -1,7 +1,7 @@
-package com.qlda.ai_service.exception;
+package com.qlda.aiservice.exception;
 
-import com.qlda.ai_service.dto.ChatResponse;
-import com.qlda.ai_service.exception.GeminiRateLimitException;
+import com.qlda.aiservice.dto.ChatResponse;
+import com.qlda.aiservice.exception.GeminiRateLimitException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
