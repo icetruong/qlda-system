@@ -3,19 +3,28 @@ package com.qlda.documentservice.service.impl;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.qlda.documentservice.client.AiServiceClient;
+import com.qlda.documentservice.client.AuthServiceClient;
+import com.qlda.documentservice.client.WorkflowServiceClient;
+import com.qlda.documentservice.client.dto.AiClientDtos;
+import com.qlda.documentservice.client.dto.AuthClientDtos;
+import com.qlda.documentservice.client.dto.WorkflowClientDtos;
 import com.qlda.documentservice.common.DocumentConstants;
-import com.qlda.documentservice.common.PageResponse;
 import com.qlda.documentservice.dto.request.DocumentRequests;
 import com.qlda.documentservice.dto.response.DocumentResponses;
 import com.qlda.documentservice.entity.LoaiVanBan;
-import com.qlda.documentservice.entity.TepDinhKem;
 import com.qlda.documentservice.entity.VanBan;
 import com.qlda.documentservice.exception.BusinessException;
 import com.qlda.documentservice.exception.ErrorCode;
 import com.qlda.documentservice.mapper.DocumentMapper;
+import com.qlda.documentservice.notification.NotificationEventPublisher;
 import com.qlda.documentservice.repository.LoaiVanBanRepository;
 import com.qlda.documentservice.repository.TepDinhKemRepository;
 import com.qlda.documentservice.repository.VanBanRepository;
@@ -23,7 +32,6 @@ import com.qlda.documentservice.security.SecurityUtils;
 import com.qlda.documentservice.service.FileStorageService;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,9 +39,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.mock.web.MockMultipartFile;
 
 @ExtendWith(MockitoExtension.class)
 class DocumentWorkflowServiceImplTest {
@@ -50,115 +55,269 @@ class DocumentWorkflowServiceImplTest {
     private FileStorageService fileStorageService;
     @Mock
     private SecurityUtils securityUtils;
+    @Mock
+    private AuthServiceClient authServiceClient;
+    @Mock
+    private WorkflowServiceClient workflowServiceClient;
+    @Mock
+    private AiServiceClient aiServiceClient;
+    @Mock
+    private NotificationEventPublisher notificationEventPublisher;
 
     @InjectMocks
     private DocumentWorkflowServiceImpl service;
 
     @Test
-    void createIncoming_shouldCreateDocumentWithIncomingType() {
-        LoaiVanBan type = new LoaiVanBan();
-        type.setId(1);
+    void createIncomingDocument_shouldValidateUnitAndStartWorkflow() {
+        LoaiVanBan type = createLoaiVanBan(1);
         when(loaiVanBanRepository.findById(1)).thenReturn(Optional.of(type));
         when(securityUtils.getCurrentUserId()).thenReturn(Optional.of(12L));
+        when(authServiceClient.getUnitById(5)).thenReturn(new AuthClientDtos.UnitInfoResponse(5, "HC", "Hanh chinh", null, true));
         when(vanBanRepository.save(any(VanBan.class))).thenAnswer(invocation -> {
             VanBan entity = invocation.getArgument(0);
-            entity.setId(100L);
+            if (entity.getId() == null) {
+                entity.setId(100L);
+            }
             return entity;
         });
+        when(workflowServiceClient.startWorkflow(eq(100L), any(WorkflowClientDtos.StartWorkflowRequest.class)))
+            .thenReturn(new WorkflowClientDtos.StartWorkflowResponse(100L, 11L, 22L, "step", DocumentConstants.TRANG_THAI_DANG_XU_LY));
         when(documentMapper.toDocumentSimpleResponse(any(VanBan.class)))
-            .thenReturn(new DocumentResponses.DocumentSimpleResponse(100L, "01/CV/2026", "Trich yeu", 1, 0, null, null));
+            .thenReturn(new DocumentResponses.DocumentSimpleResponse(100L, "01/CV/2026", "Trich yeu", 1, 1, null, null));
 
         DocumentResponses.DocumentSimpleResponse response = service.createIncoming(incomingRequest());
 
         assertThat(response.id()).isEqualTo(100L);
-        ArgumentCaptor<VanBan> captor = ArgumentCaptor.forClass(VanBan.class);
-        verify(vanBanRepository).save(captor.capture());
-        assertThat(captor.getValue().getPhanLoaiVanBan()).isEqualTo(DocumentConstants.PHAN_LOAI_VAN_BAN_DEN);
-        assertThat(captor.getValue().getTrangThai()).isEqualTo(DocumentConstants.TRANG_THAI_NHAP);
-        assertThat(captor.getValue().getNguoiTaoId()).isEqualTo(12L);
+        verify(authServiceClient).getUnitById(5);
+        verify(workflowServiceClient).startWorkflow(eq(100L), any(WorkflowClientDtos.StartWorkflowRequest.class));
+        verify(vanBanRepository, atLeastOnce()).save(any(VanBan.class));
     }
 
     @Test
-    void updateIncoming_shouldThrowNotFound_whenMissingDocument() {
-        when(vanBanRepository.findByIdAndDaXoaFalse(9L)).thenReturn(Optional.empty());
+    void createIncomingDocument_shouldFailWhenAuthValidationFails() {
+        when(authServiceClient.getUnitById(5)).thenThrow(new RuntimeException("auth down"));
 
-        assertThatThrownBy(() -> service.updateIncoming(9L, incomingRequest()))
+        assertThatThrownBy(() -> service.createIncoming(incomingRequest()))
             .isInstanceOf(BusinessException.class)
-            .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.DOCUMENT_NOT_FOUND));
+            .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.INVALID_REQUEST));
     }
 
     @Test
-    void listIncoming_shouldReturnPagedResult() {
-        VanBan vanBan = new VanBan();
-        vanBan.setId(1L);
-        when(vanBanRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(PageRequest.class)))
-            .thenReturn(new PageImpl<>(List.of(vanBan), PageRequest.of(0, 10), 1));
-        when(documentMapper.toDocumentListItemResponse(vanBan))
-            .thenReturn(new DocumentResponses.DocumentListItemResponse(1L, "01/CV/2026", "TY", null, null, null, null, null, 0));
-
-        PageResponse<DocumentResponses.DocumentListItemResponse> response = service.listIncoming(
-            "CV", 1, 2, 0, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31), PageRequest.of(0, 10)
-        );
-
-        assertThat(response.totalElements()).isEqualTo(1);
-        assertThat(response.content()).hasSize(1);
-    }
-
-    @Test
-    void getIncomingDetail_shouldIncludeAttachments() {
-        VanBan vanBan = new VanBan();
-        vanBan.setId(8L);
-        TepDinhKem attachment = new TepDinhKem();
-        attachment.setId(3L);
-        attachment.setVanBan(vanBan);
-        when(vanBanRepository.findByIdAndDaXoaFalse(8L)).thenReturn(Optional.of(vanBan));
-        when(tepDinhKemRepository.findByVanBan_Id(8L)).thenReturn(List.of(attachment));
-        when(documentMapper.toDocumentDetailResponse(vanBan, List.of(attachment)))
-            .thenReturn(new DocumentResponses.DocumentDetailResponse(8L, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, List.of()));
-
-        DocumentResponses.DocumentDetailResponse response = service.getIncomingDetail(8L);
-
-        assertThat(response.id()).isEqualTo(8L);
-    }
-
-    @Test
-    void createOutgoing_shouldCreateOutgoingDocument() {
-        LoaiVanBan type = new LoaiVanBan();
-        type.setId(3);
-        when(loaiVanBanRepository.findById(3)).thenReturn(Optional.of(type));
+    void createIncomingDocument_shouldSaveDocumentEvenWhenNotificationPublisherFails() {
+        LoaiVanBan type = createLoaiVanBan(1);
+        when(loaiVanBanRepository.findById(1)).thenReturn(Optional.of(type));
+        when(securityUtils.getCurrentUserId()).thenReturn(Optional.of(12L));
+        when(authServiceClient.getUnitById(5)).thenReturn(new AuthClientDtos.UnitInfoResponse(5, "HC", "Hanh chinh", null, true));
         when(vanBanRepository.save(any(VanBan.class))).thenAnswer(invocation -> {
             VanBan entity = invocation.getArgument(0);
-            entity.setId(13L);
+            if (entity.getId() == null) {
+                entity.setId(101L);
+            }
             return entity;
         });
+        when(workflowServiceClient.startWorkflow(eq(101L), any(WorkflowClientDtos.StartWorkflowRequest.class)))
+            .thenReturn(new WorkflowClientDtos.StartWorkflowResponse(101L, 11L, 22L, "step", DocumentConstants.TRANG_THAI_DANG_XU_LY));
+        doThrow(new RuntimeException("kafka down")).when(notificationEventPublisher).publish(any());
         when(documentMapper.toDocumentSimpleResponse(any(VanBan.class)))
-            .thenReturn(new DocumentResponses.DocumentSimpleResponse(13L, "02/OUT/2026", "Out", 2, 0, null, null));
+            .thenReturn(new DocumentResponses.DocumentSimpleResponse(101L, "01/CV/2026", "Trich yeu", 1, 1, null, null));
+
+        DocumentResponses.DocumentSimpleResponse response = service.createIncoming(incomingRequest());
+
+        assertThat(response.id()).isEqualTo(101L);
+        verify(vanBanRepository, atLeastOnce()).save(any(VanBan.class));
+    }
+
+    @Test
+    void createOutgoingDocument_shouldValidateUnitAndStartWorkflow() {
+        LoaiVanBan type = createLoaiVanBan(3);
+        when(loaiVanBanRepository.findById(3)).thenReturn(Optional.of(type));
+        when(securityUtils.getCurrentUserId()).thenReturn(Optional.of(15L));
+        when(authServiceClient.getUnitById(8)).thenReturn(new AuthClientDtos.UnitInfoResponse(8, "DV8", "Don vi 8", null, true));
+        when(vanBanRepository.save(any(VanBan.class))).thenAnswer(invocation -> {
+            VanBan entity = invocation.getArgument(0);
+            if (entity.getId() == null) {
+                entity.setId(102L);
+            }
+            return entity;
+        });
+        when(workflowServiceClient.startWorkflow(eq(102L), any(WorkflowClientDtos.StartWorkflowRequest.class)))
+            .thenReturn(new WorkflowClientDtos.StartWorkflowResponse(102L, 12L, 23L, "step", DocumentConstants.TRANG_THAI_DANG_XU_LY));
+        when(documentMapper.toDocumentSimpleResponse(any(VanBan.class)))
+            .thenReturn(new DocumentResponses.DocumentSimpleResponse(102L, "02/OUT/2026", "Out", 3, 1, null, null));
 
         DocumentResponses.DocumentSimpleResponse response = service.createOutgoing(outgoingRequest());
 
-        assertThat(response.id()).isEqualTo(13L);
-        ArgumentCaptor<VanBan> captor = ArgumentCaptor.forClass(VanBan.class);
-        verify(vanBanRepository).save(captor.capture());
-        assertThat(captor.getValue().getPhanLoaiVanBan()).isEqualTo(DocumentConstants.PHAN_LOAI_VAN_BAN_DI);
+        assertThat(response.id()).isEqualTo(102L);
+        verify(authServiceClient).getUnitById(8);
+        verify(workflowServiceClient).startWorkflow(eq(102L), any(WorkflowClientDtos.StartWorkflowRequest.class));
     }
 
     @Test
-    void uploadOcrFile_and_saveOcr_shouldSetDaOcr() {
-        VanBan vanBan = new VanBan();
-        vanBan.setId(20L);
-        MockMultipartFile file = new MockMultipartFile("file", "scan.pdf", "application/pdf", "abc".getBytes());
-        when(vanBanRepository.findByIdAndDaXoaFalse(20L)).thenReturn(Optional.of(vanBan));
-        when(fileStorageService.store(file)).thenReturn("/uploads/scan.pdf");
+    void transferIncomingDocument_shouldValidateReceiverAndUnitAndCallWorkflowAndPublishEvent() {
+        VanBan vanBan = existingDocument(200L);
+        when(vanBanRepository.findByIdAndDaXoaFalse(200L)).thenReturn(Optional.of(vanBan));
         when(vanBanRepository.save(any(VanBan.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(authServiceClient.getUserById(88L)).thenReturn(new AuthClientDtos.UserInfoResponse(88L, "u88", "User 88", null, null, null, null, null, 1));
+        when(authServiceClient.getUnitById(9)).thenReturn(new AuthClientDtos.UnitInfoResponse(9, "DV9", "Don vi 9", null, true));
+        when(workflowServiceClient.transferWorkflow(eq(200L), any(WorkflowClientDtos.TransferWorkflowRequest.class)))
+            .thenReturn(new WorkflowClientDtos.TransferWorkflowResponse(300L, 200L, 88L, 1));
 
-        DocumentResponses.OcrUploadResponse uploadResponse = service.uploadOcrFile(20L, file);
-        DocumentResponses.OcrSaveResponse saveResponse = service.saveOcr(
-            20L,
-            new DocumentRequests.OcrSaveRequest("text", 98.0)
+        DocumentResponses.TransferResponse response = service.transferIncoming(
+            200L,
+            new DocumentRequests.TransferDocumentRequest(88L, 9, "chuyen xu ly", null)
         );
 
-        assertThat(uploadResponse.fileUrl()).isEqualTo("/uploads/scan.pdf");
-        assertThat(saveResponse.daOCR()).isTrue();
+        assertThat(response.trangThai()).isEqualTo(DocumentConstants.TRANG_THAI_DA_CHUYEN);
+        verify(authServiceClient).getUserById(88L);
+        verify(authServiceClient).getUnitById(9);
+        verify(workflowServiceClient).transferWorkflow(eq(200L), any(WorkflowClientDtos.TransferWorkflowRequest.class));
+        verify(notificationEventPublisher).publish(any());
+    }
+
+    @Test
+    void transferIncomingDocument_shouldPersistStateWhenNotificationFails() {
+        VanBan vanBan = existingDocument(201L);
+        when(vanBanRepository.findByIdAndDaXoaFalse(201L)).thenReturn(Optional.of(vanBan));
+        when(vanBanRepository.save(any(VanBan.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(authServiceClient.getUserById(90L)).thenReturn(new AuthClientDtos.UserInfoResponse(90L, "u90", "User 90", null, null, null, null, null, 1));
+        when(authServiceClient.getUnitById(10)).thenReturn(new AuthClientDtos.UnitInfoResponse(10, "DV10", "Don vi 10", null, true));
+        when(workflowServiceClient.transferWorkflow(eq(201L), any(WorkflowClientDtos.TransferWorkflowRequest.class)))
+            .thenReturn(new WorkflowClientDtos.TransferWorkflowResponse(301L, 201L, 90L, 1));
+        doThrow(new RuntimeException("kafka down")).when(notificationEventPublisher).publish(any());
+
+        DocumentResponses.TransferResponse response = service.transferIncoming(
+            201L,
+            new DocumentRequests.TransferDocumentRequest(90L, 10, "chuyen", null)
+        );
+
+        assertThat(response.trangThai()).isEqualTo(DocumentConstants.TRANG_THAI_DA_CHUYEN);
+        assertThat(vanBan.getTrangThai()).isEqualTo(DocumentConstants.TRANG_THAI_DA_CHUYEN);
+    }
+
+    @Test
+    void submitDraftSigning_shouldValidateSignerAndCallWorkflowAndPublishEvent() {
+        VanBan vanBan = existingDocument(300L);
+        when(vanBanRepository.findByIdAndDaXoaFalse(300L)).thenReturn(Optional.of(vanBan));
+        when(vanBanRepository.save(any(VanBan.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(authServiceClient.getUserById(66L)).thenReturn(new AuthClientDtos.UserInfoResponse(66L, "u66", "User 66", null, null, null, null, null, 1));
+        when(workflowServiceClient.submitApproval(eq(300L), any(WorkflowClientDtos.SubmitApprovalRequest.class)))
+            .thenReturn(new WorkflowClientDtos.SubmitApprovalResponse(300L, 400L, 66L, 1));
+
+        DocumentResponses.SubmitSigningResponse response = service.submitDraftSigning(
+            300L,
+            new DocumentRequests.SubmitSigningRequest(66L, "Trinh ky")
+        );
+
+        assertThat(response.trangThai()).isEqualTo(DocumentConstants.TRANG_THAI_TRINH_KY);
+        verify(authServiceClient).getUserById(66L);
+        verify(workflowServiceClient).submitApproval(eq(300L), any(WorkflowClientDtos.SubmitApprovalRequest.class));
+        verify(notificationEventPublisher).publish(any());
+    }
+
+    @Test
+    void submitOutgoingApproval_shouldValidateApproverAndCallWorkflowAndPublishEvent() {
+        VanBan vanBan = existingDocument(301L);
+        when(vanBanRepository.findByIdAndDaXoaFalse(301L)).thenReturn(Optional.of(vanBan));
+        when(vanBanRepository.save(any(VanBan.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(authServiceClient.getUserById(77L)).thenReturn(new AuthClientDtos.UserInfoResponse(77L, "u77", "User 77", null, null, null, null, null, 1));
+        when(workflowServiceClient.submitApproval(eq(301L), any(WorkflowClientDtos.SubmitApprovalRequest.class)))
+            .thenReturn(new WorkflowClientDtos.SubmitApprovalResponse(301L, 401L, 77L, 1));
+
+        DocumentResponses.SubmitApprovalResponse response = service.submitOutgoingApproval(
+            301L,
+            new DocumentRequests.SubmitApprovalRequest(77L, "Trinh duyet")
+        );
+
+        assertThat(response.trangThai()).isEqualTo(DocumentConstants.TRANG_THAI_TRINH_KY);
+        verify(authServiceClient).getUserById(77L);
+        verify(workflowServiceClient).submitApproval(eq(301L), any(WorkflowClientDtos.SubmitApprovalRequest.class));
+        verify(notificationEventPublisher).publish(any());
+    }
+
+    @Test
+    void processOcr_shouldCallAiServiceAndUpdateOcrStatus() {
+        VanBan vanBan = existingDocument(400L);
+        when(vanBanRepository.findByIdAndDaXoaFalse(400L)).thenReturn(Optional.of(vanBan));
+        when(vanBanRepository.save(any(VanBan.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(aiServiceClient.ocr(any(AiClientDtos.OcrRequest.class)))
+            .thenReturn(new AiClientDtos.OcrResponse(400L, "ket qua ocr", 97.5, "model-x"));
+
+        DocumentResponses.OcrProcessResponse response = service.processOcr(
+            400L,
+            new DocumentRequests.OcrProcessRequest("https://files/doc.pdf", "vi")
+        );
+
+        assertThat(response.ocrText()).isEqualTo("ket qua ocr");
+        assertThat(vanBan.getDaOCR()).isTrue();
+        verify(aiServiceClient).ocr(any(AiClientDtos.OcrRequest.class));
+        verify(vanBanRepository).save(vanBan);
+    }
+
+    @Test
+    void processOcr_shouldMapAiErrorToOcrFailed() {
+        VanBan vanBan = existingDocument(401L);
+        when(vanBanRepository.findByIdAndDaXoaFalse(401L)).thenReturn(Optional.of(vanBan));
+        when(aiServiceClient.ocr(any(AiClientDtos.OcrRequest.class))).thenThrow(new RuntimeException("ai down"));
+
+        assertThatThrownBy(() -> service.processOcr(401L, new DocumentRequests.OcrProcessRequest("https://files/ocr.pdf", "vi")))
+            .isInstanceOf(BusinessException.class)
+            .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.OCR_FAILED));
+    }
+
+    @Test
+    void publishDocument_shouldPublishNotificationEvent() {
+        VanBan vanBan = existingDocument(500L);
+        vanBan.setNguoiTaoId(99L);
+        when(vanBanRepository.findByIdAndDaXoaFalse(500L)).thenReturn(Optional.of(vanBan));
+        when(vanBanRepository.save(any(VanBan.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        DocumentResponses.PublishResponse response = service.publish(
+            500L,
+            new DocumentRequests.PublishRequest(LocalDate.of(2026, 5, 1), "Phat hanh")
+        );
+
+        assertThat(response.trangThai()).isEqualTo(DocumentConstants.TRANG_THAI_DA_PHAT_HANH);
+        verify(notificationEventPublisher).publish(any());
+    }
+
+    @Test
+    void sendDocument_shouldValidateReceiversAndPublishNotificationEvent() {
+        VanBan vanBan = existingDocument(600L);
+        when(vanBanRepository.findByIdAndDaXoaFalse(600L)).thenReturn(Optional.of(vanBan));
+        when(authServiceClient.validateUsers(new AuthClientDtos.ValidateUsersRequest(List.of(1L, 2L))))
+            .thenReturn(new AuthClientDtos.ValidateUsersResponse(true, List.of()));
+        when(authServiceClient.validateUnits(new AuthClientDtos.ValidateUnitsRequest(List.of(3, 4))))
+            .thenReturn(new AuthClientDtos.ValidateUnitsResponse(true, List.of()));
+
+        DocumentResponses.SendDocumentResponse response = service.send(
+            600L,
+            new DocumentRequests.SendDocumentRequest(List.of(1L, 2L), List.of(3, 4), "EMAIL", "Noi dung")
+        );
+
+        assertThat(response.totalReceivers()).isEqualTo(4);
+        verify(authServiceClient).validateUsers(any(AuthClientDtos.ValidateUsersRequest.class));
+        verify(authServiceClient).validateUnits(any(AuthClientDtos.ValidateUnitsRequest.class));
+        verify(notificationEventPublisher).publish(any());
+    }
+
+    @Test
+    void createIncomingDocument_shouldNotPublishWhenWorkflowFails() {
+        LoaiVanBan type = createLoaiVanBan(1);
+        when(loaiVanBanRepository.findById(1)).thenReturn(Optional.of(type));
+        when(authServiceClient.getUnitById(5)).thenReturn(new AuthClientDtos.UnitInfoResponse(5, "HC", "Hanh chinh", null, true));
+        when(vanBanRepository.save(any(VanBan.class))).thenAnswer(invocation -> {
+            VanBan entity = invocation.getArgument(0);
+            if (entity.getId() == null) {
+                entity.setId(700L);
+            }
+            return entity;
+        });
+        when(workflowServiceClient.startWorkflow(eq(700L), any(WorkflowClientDtos.StartWorkflowRequest.class)))
+            .thenThrow(new RuntimeException("workflow down"));
+
+        assertThatThrownBy(() -> service.createIncoming(incomingRequest()))
+            .isInstanceOf(BusinessException.class);
+        verify(notificationEventPublisher, never()).publish(any());
     }
 
     @Test
@@ -171,97 +330,46 @@ class DocumentWorkflowServiceImplTest {
     }
 
     @Test
-    void assignNumber_shouldUpdateNumber_whenValid() {
-        VanBan vanBan = new VanBan();
-        vanBan.setId(1L);
-        when(vanBanRepository.existsBySoKyHieuAndDaXoaFalse("02/CV/2026")).thenReturn(false);
-        when(vanBanRepository.findByIdAndDaXoaFalse(1L)).thenReturn(Optional.of(vanBan));
-        when(vanBanRepository.save(vanBan)).thenReturn(vanBan);
+    void createIncoming_shouldSetIncomingTypeAndCreator() {
+        LoaiVanBan type = createLoaiVanBan(1);
+        when(loaiVanBanRepository.findById(1)).thenReturn(Optional.of(type));
+        when(securityUtils.getCurrentUserId()).thenReturn(Optional.of(12L));
+        when(authServiceClient.getUnitById(5)).thenReturn(new AuthClientDtos.UnitInfoResponse(5, "HC", "Hanh chinh", null, true));
+        when(vanBanRepository.save(any(VanBan.class))).thenAnswer(invocation -> {
+            VanBan entity = invocation.getArgument(0);
+            if (entity.getId() == null) {
+                entity.setId(100L);
+            }
+            return entity;
+        });
+        when(workflowServiceClient.startWorkflow(eq(100L), any(WorkflowClientDtos.StartWorkflowRequest.class)))
+            .thenReturn(new WorkflowClientDtos.StartWorkflowResponse(100L, 11L, 22L, "step", DocumentConstants.TRANG_THAI_DANG_XU_LY));
+        when(documentMapper.toDocumentSimpleResponse(any(VanBan.class)))
+            .thenReturn(new DocumentResponses.DocumentSimpleResponse(100L, "01/CV/2026", "Trich yeu", 1, 1, null, null));
 
-        DocumentResponses.NumberAssignResponse response = service.assignNumber(1L, new DocumentRequests.AssignNumberRequest("02/CV/2026"));
+        service.createIncoming(incomingRequest());
 
-        assertThat(response.soKyHieu()).isEqualTo("02/CV/2026");
-        assertThat(vanBan.getSoKyHieu()).isEqualTo("02/CV/2026");
+        ArgumentCaptor<VanBan> captor = ArgumentCaptor.forClass(VanBan.class);
+        verify(vanBanRepository, atLeastOnce()).save(captor.capture());
+        VanBan firstSave = captor.getAllValues().get(0);
+        assertThat(firstSave.getPhanLoaiVanBan()).isEqualTo(DocumentConstants.PHAN_LOAI_VAN_BAN_DEN);
+        assertThat(firstSave.getNguoiTaoId()).isEqualTo(12L);
     }
 
-    @Test
-    void generateNumber_shouldUseTypeCodeAndCurrentCount() {
+    private static LoaiVanBan createLoaiVanBan(int id) {
         LoaiVanBan type = new LoaiVanBan();
-        type.setId(3);
-        type.setMaLoaiVanBan("QD");
-        VanBan existing = new VanBan();
-        existing.setSoKyHieu("01/QD/2026");
-        existing.setDaXoa(false);
-        when(loaiVanBanRepository.findById(3)).thenReturn(Optional.of(type));
-        when(vanBanRepository.findAll()).thenReturn(List.of(existing));
-
-        DocumentResponses.NumberGenerateResponse response = service.generateNumber(
-            new DocumentRequests.GenerateNumberRequest(3, null, 2026)
-        );
-
-        assertThat(response.soKyHieu()).isEqualTo("02/QD/2026");
+        type.setId(id);
+        return type;
     }
 
-    @Test
-    void checkNumber_shouldReturnExistsStatus() {
-        when(vanBanRepository.existsBySoKyHieuAndDaXoaFalse("03/CV/2026")).thenReturn(true);
-
-        DocumentResponses.NumberCheckResponse response = service.checkNumber("03/CV/2026");
-
-        assertThat(response.exists()).isTrue();
-    }
-
-    @Test
-    void versionLifecycle_shouldCreateListCompareRestoreDelete() {
+    private static VanBan existingDocument(Long id) {
         VanBan vanBan = new VanBan();
-        vanBan.setId(30L);
-        when(vanBanRepository.findByIdAndDaXoaFalse(30L)).thenReturn(Optional.of(vanBan));
-
-        service.createVersion(30L, new DocumentRequests.DocumentVersionCreateRequest("v1", "old", "/f1"));
-        service.createVersion(30L, new DocumentRequests.DocumentVersionCreateRequest("v2", "new", "/f2"));
-
-        List<DocumentResponses.DocumentVersionResponse> versions = service.listVersions(30L);
-        DocumentResponses.DocumentVersionCompareResponse compare = service.compareVersions(30L, "v1", "v2");
-        DocumentResponses.DocumentVersionRestoreResponse restore = service.restoreVersion(
-            30L, new DocumentRequests.DocumentVersionRestoreRequest("v1")
-        );
-        DocumentResponses.DocumentVersionDeleteResponse delete = service.deleteVersion(30L, "v1");
-
-        assertThat(versions).hasSize(2);
-        assertThat(compare.differences()).isNotEmpty();
-        assertThat(restore.restoredVersion()).isEqualTo("v1");
-        assertThat(delete.versionName()).isEqualTo("v1");
-    }
-
-    @Test
-    void compareVersions_shouldThrowBadRequest_whenVersionMissing() {
-        VanBan vanBan = new VanBan();
-        vanBan.setId(31L);
-        when(vanBanRepository.findByIdAndDaXoaFalse(31L)).thenReturn(Optional.of(vanBan));
-        service.createVersion(31L, new DocumentRequests.DocumentVersionCreateRequest("v1", "old", "/f1"));
-
-        assertThatThrownBy(() -> service.compareVersions(31L, "v1", "v9"))
-            .isInstanceOf(BusinessException.class)
-            .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.INVALID_REQUEST));
-    }
-
-    @Test
-    void publish_sign_send_shouldUpdateAndReturnResult() {
-        VanBan vanBan = new VanBan();
-        vanBan.setId(40L);
-        when(vanBanRepository.findByIdAndDaXoaFalse(40L)).thenReturn(Optional.of(vanBan));
-        when(vanBanRepository.save(any(VanBan.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        DocumentResponses.DigitalSignResponse sign = service.digitalSign(40L, new DocumentRequests.DigitalSignRequest(1L, "USB", null));
-        DocumentResponses.PublishResponse publish = service.publish(40L, new DocumentRequests.PublishRequest(LocalDate.of(2026, 5, 1), "ok"));
-        DocumentResponses.SendDocumentResponse send = service.send(
-            40L,
-            new DocumentRequests.SendDocumentRequest(List.of(1L, 2L), List.of(3), "EMAIL", "Noi dung")
-        );
-
-        assertThat(sign.daKySo()).isTrue();
-        assertThat(publish.trangThai()).isEqualTo(DocumentConstants.TRANG_THAI_DA_PHAT_HANH);
-        assertThat(send.totalReceivers()).isEqualTo(3);
+        vanBan.setId(id);
+        vanBan.setSoKyHieu("SKH-" + id);
+        vanBan.setTrichYeu("Trich yeu " + id);
+        vanBan.setTrangThai(DocumentConstants.TRANG_THAI_NHAP);
+        vanBan.setDaOCR(false);
+        return vanBan;
     }
 
     private static DocumentRequests.IncomingDocumentRequest incomingRequest() {

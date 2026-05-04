@@ -21,18 +21,18 @@ API 1: Lấy thông tin văn bản
 GET /internal/documents/{id}
 Trả về:
 {
- "id": 1,
- "soKyHieu": "123/CV-ABC",
- "trichYeu": "Văn bản triển khai hệ thống",
- "loaiVanBanId": 1,
- "tenLoaiVanBan": "Công văn",
- "documentType": "INCOMING",
- "donViChuTriId": 1,
- "nguoiTaoId": 2,
- "hanXuLy": "2026-05-10T17:00:00",
- "trangThai": 1,
- "daOCR": false,
- "daKySo": false
+"id": 1,
+"soKyHieu": "123/CV-ABC",
+"trichYeu": "Văn bản triển khai hệ thống",
+"loaiVanBanId": 1,
+"tenLoaiVanBan": "Công văn",
+"documentType": "INCOMING",
+"donViChuTriId": 1,
+"nguoiTaoId": 2,
+"hanXuLy": "2026-05-10T17:00:00",
+"trangThai": 1,
+"daOCR": false,
+"daKySo": false
 }
 Dùng khi:
 Khởi tạo workflow
@@ -44,8 +44,8 @@ API 2: Cập nhật trạng thái văn bản
 PATCH /internal/documents/{id}/status
 Trả về:
 {
- "documentId": 1,
- "trangThai": 3
+"documentId": 1,
+"trangThai": 3
 }
 Dùng khi:
 Văn bản đang xử lý
@@ -57,9 +57,9 @@ API 3: Cập nhật người đang xử lý
 PATCH /internal/documents/{id}/assignee
 Trả về:
 {
- "documentId": 1,
- "nguoiXuLyId": 2,
- "donViXuLyId": 1
+"documentId": 1,
+"nguoiXuLyId": 2,
+"donViXuLyId": 1
 }
 Dùng khi:
 Chuyển xử lý cho người mới
@@ -69,9 +69,9 @@ API 4: Cập nhật trạng thái workflow của văn bản
 PATCH /internal/documents/{id}/workflow-status
 Trả về:
 {
- "documentId": 1,
- "workflowStatus": "PROCESSING",
- "processingId": 20
+"documentId": 1,
+"workflowStatus": "PROCESSING",
+"processingId": 20
 }
 Dùng khi:
 Workflow chuyển bước
@@ -84,25 +84,102 @@ Kiểm tra người gửi, người nhận
 Kiểm tra người phê duyệt
 Kiểm tra đơn vị xử lý
 Kiểm tra quyền duyệt/chuyển xử lý
-Các API và dữ liệu trả về giống mục 4.1.1, gồm:
-GET  /internal/auth/users/{id}
+API 1: Lấy thông tin user
+GET /internal/auth/users/{id}
+Trả về:
+{
+"id": 1,
+"username": "nva",
+"hoTen": "Nguyễn Văn A",
+"email": "nva@company.com",
+"donViId": 1,
+"tenDonVi": "Phòng Hành chính",
+"nhomQuyenId": 2,
+"maNhomQuyen": "CHUYEN_VIEN",
+"trangThai": 1
+}
+Dùng khi:
+Kiểm tra nguoiTaoId
+Kiểm tra nguoiKyId
+Kiểm tra nguoiNhanId
+Kiểm tra nguoiPheDuyetId
+
+API 2: Kiểm tra nhiều user tồn tại
 POST /internal/auth/users/validate
-GET  /internal/auth/units/{id}
+Trả về:
+{
+"valid": true,
+"invalidUserIds": []
+}
+Dùng khi:
+Gửi văn bản cho nhiều người
+Gửi góp ý văn bản
+Gửi thông báo nhiều người
+Validate nguoiNhanIds
+
+API 3: Lấy thông tin đơn vị
+GET /internal/auth/units/{id}
+Trả về:
+{
+"id": 1,
+"maDonVi": "HC",
+"tenDonVi": "Phòng Hành chính",
+"donViChaId": null,
+"suDung": true
+}
+Dùng khi:
+Kiểm tra donViChuTriId
+Kiểm tra donViXuLyId
+Kiểm tra donViNhanId
+
+API 4: Kiểm tra nhiều đơn vị tồn tại
 POST /internal/auth/units/validate
-GET  /internal/auth/users/{id}/roles
+Trả về:
+{
+"valid": true,
+"invalidUnitIds": []
+}
+Dùng khi:
+Gửi văn bản cho nhiều đơn vị
+Validate donViNhanIds
+
+API 5: Lấy vai trò user
+GET /internal/auth/users/{id}/roles
+Trả về:
+{
+"userId": 1,
+"roles": ["CHUYEN_VIEN"],
+"permissions": [
+{
+"maChucNang": "DOCUMENT_INCOMING",
+"isView": true,
+"isCreate": false,
+"isEdit": true,
+"isDelete": false,
+"isApprove": false
+}
+]
+}
+Dùng khi:
+Kiểm tra người dùng có vai trò phù hợp không
+Kiểm tra người ký có phải lãnh đạo không
+Kiểm tra người nhận có quyền xử lý văn bản không
+
+API 6: Kiểm tra quyền
 POST /internal/auth/permissions/check
-Dữ liệu trả về chính:
+Trả về:
 {
- "userId": 1,
- "roles": ["LANH_DAO"],
- "permissions": []
+"allowed": true,
+"userId": 1,
+"maChucNang": "DOCUMENT_INCOMING",
+"permission": "IsEdit"
 }
-hoặc:
-{
- "allowed": true,
- "maChucNang": "DOCUMENT_APPROVAL",
- "permission": "IsApprove"
-}
+Dùng khi:
+Tạo văn bản
+Cập nhật văn bản
+Chuyển xử lý
+Trình ký
+Phát hành văn bản
 
 4.2.3. workflow-service gọi notification-service
 workflow-service không gọi trực tiếp notification-service bằng REST API. Khi có sự kiện trong workflow, service publish event vào Kafka.
@@ -116,64 +193,64 @@ Kafka topic:
 notification-events
 Event mẫu: chuyển xử lý
 {
- "eventId": "evt-003",
- "eventType": "WORKFLOW_TRANSFERRED",
- "sourceService": "workflow-service",
- "nguoiNhanIds": [2],
- "tieuDe": "Bạn có văn bản mới cần xử lý",
- "noiDung": "Một văn bản vừa được chuyển đến bạn để xử lý",
- "loaiThongBao": "NHAC_VIEC",
- "kenhGui": ["SYSTEM", "EMAIL"],
- "referenceType": "WORKFLOW",
- "referenceId": 20,
- "metadata": {
-   "documentId": 1,
-   "processingId": 20,
-   "nguoiGuiId": 1,
-   "nguoiNhanId": 2,
-   "hanXuLy": "2026-05-10T17:00:00"
- },
- "createdAt": "2026-04-30T10:00:00"
+"eventId": "evt-003",
+"eventType": "WORKFLOW_TRANSFERRED",
+"sourceService": "workflow-service",
+"nguoiNhanIds": [2],
+"tieuDe": "Bạn có văn bản mới cần xử lý",
+"noiDung": "Một văn bản vừa được chuyển đến bạn để xử lý",
+"loaiThongBao": "NHAC_VIEC",
+"kenhGui": ["SYSTEM", "EMAIL"],
+"referenceType": "WORKFLOW",
+"referenceId": 20,
+"metadata": {
+"documentId": 1,
+"processingId": 20,
+"nguoiGuiId": 1,
+"nguoiNhanId": 2,
+"hanXuLy": "2026-05-10T17:00:00"
+},
+"createdAt": "2026-04-30T10:00:00"
 }
 Event mẫu: trình phê duyệt
 {
- "eventId": "evt-004",
- "eventType": "WORKFLOW_APPROVAL_REQUESTED",
- "sourceService": "workflow-service",
- "nguoiNhanIds": [4],
- "tieuDe": "Bạn có văn bản cần phê duyệt",
- "noiDung": "Một văn bản đang chờ bạn phê duyệt",
- "loaiThongBao": "PHE_DUYET",
- "kenhGui": ["SYSTEM", "EMAIL"],
- "referenceType": "WORKFLOW",
- "referenceId": 30,
- "metadata": {
-   "documentId": 1,
-   "processingId": 30,
-   "nguoiTrinhId": 2,
-   "nguoiPheDuyetId": 4
- },
- "createdAt": "2026-04-30T10:00:00"
+"eventId": "evt-004",
+"eventType": "WORKFLOW_APPROVAL_REQUESTED",
+"sourceService": "workflow-service",
+"nguoiNhanIds": [4],
+"tieuDe": "Bạn có văn bản cần phê duyệt",
+"noiDung": "Một văn bản đang chờ bạn phê duyệt",
+"loaiThongBao": "PHE_DUYET",
+"kenhGui": ["SYSTEM", "EMAIL"],
+"referenceType": "WORKFLOW",
+"referenceId": 30,
+"metadata": {
+"documentId": 1,
+"processingId": 30,
+"nguoiTrinhId": 2,
+"nguoiPheDuyetId": 4
+},
+"createdAt": "2026-04-30T10:00:00"
 }
 Event mẫu: cảnh báo SLA
 {
- "eventId": "evt-005",
- "eventType": "WORKFLOW_SLA_VIOLATED",
- "sourceService": "workflow-service",
- "nguoiNhanIds": [2, 4],
- "tieuDe": "Cảnh báo văn bản quá hạn xử lý",
- "noiDung": "Có văn bản đã quá hạn xử lý theo SLA",
- "loaiThongBao": "CANH_BAO_SLA",
- "kenhGui": ["SYSTEM", "EMAIL"],
- "referenceType": "WORKFLOW",
- "referenceId": 20,
- "metadata": {
-   "documentId": 1,
-   "processingId": 20,
-   "soGioTre": 5,
-   "hanXuLy": "2026-04-30T17:00:00"
- },
- "createdAt": "2026-04-30T10:00:00"
+"eventId": "evt-005",
+"eventType": "WORKFLOW_SLA_VIOLATED",
+"sourceService": "workflow-service",
+"nguoiNhanIds": [2, 4],
+"tieuDe": "Cảnh báo văn bản quá hạn xử lý",
+"noiDung": "Có văn bản đã quá hạn xử lý theo SLA",
+"loaiThongBao": "CANH_BAO_SLA",
+"kenhGui": ["SYSTEM", "EMAIL"],
+"referenceType": "WORKFLOW",
+"referenceId": 20,
+"metadata": {
+"documentId": 1,
+"processingId": 20,
+"soGioTre": 5,
+"hanXuLy": "2026-04-30T17:00:00"
+},
+"createdAt": "2026-04-30T10:00:00"
 }
 Kết quả xử lý:
 workflow-service chỉ publish event vào Kafka.
