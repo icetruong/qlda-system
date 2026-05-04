@@ -13,5 +13,6 @@ import java.util.List;
 public class InternalAuthProperties {
     private String serviceName;
     private String serviceToken;
+    private String apiKey;
     private List<String> allowedServices = new ArrayList<>();
 }

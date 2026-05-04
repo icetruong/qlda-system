@@ -37,7 +37,7 @@ class DocumentServiceClientTest {
     @Test
     void getDocumentById_success() {
         when(documentServiceHttpClient.getDocumentById(1L))
-                .thenReturn(new DocumentDetailDto(1L, "123", "test", 1, "INCOMING", 1, 2L, LocalDateTime.now(), 1));
+                .thenReturn(new DocumentDetailDto(1L, "123", "test", 1, "Cong van", "INCOMING", 1, 2L, LocalDateTime.now(), 1, false, false));
 
         DocumentDetailDto response = documentServiceClient.getDocumentById(1L);
 

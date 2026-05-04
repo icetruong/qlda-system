@@ -86,7 +86,7 @@ class InternalWorkflowServiceImplTest {
 
     @Test
     void startWorkflow_success() {
-        when(documentServiceClient.getDocumentById(1L)).thenReturn(new DocumentDetailDto(1L, "SKH", "TY", 1, "INCOMING", 1, 2L, LocalDateTime.now().plusDays(1), 1));
+        when(documentServiceClient.getDocumentById(1L)).thenReturn(new DocumentDetailDto(1L, "SKH", "TY", 1, "Cong van", "INCOMING", 1, 2L, LocalDateTime.now().plusDays(1), 1, false, false));
         when(buocQuyTrinhRepository.findFirstByQuyTrinh_IdOrderByThuTuBuocAsc(1)).thenReturn(Optional.of(step));
         when(xuLyVanBanRepository.save(any())).thenAnswer(invocation -> {
             XuLyVanBan saved = invocation.getArgument(0);
@@ -103,7 +103,7 @@ class InternalWorkflowServiceImplTest {
 
     @Test
     void transferWorkflow_success_andIntegrationFlow() {
-        when(documentServiceClient.getDocumentById(1L)).thenReturn(new DocumentDetailDto(1L, "SKH", "TY", 1, "INCOMING", 1, 2L, LocalDateTime.now().plusDays(1), 1));
+        when(documentServiceClient.getDocumentById(1L)).thenReturn(new DocumentDetailDto(1L, "SKH", "TY", 1, "Cong van", "INCOMING", 1, 2L, LocalDateTime.now().plusDays(1), 1, false, false));
         when(buocQuyTrinhRepository.findById(11L)).thenReturn(Optional.of(step));
         when(xuLyVanBanRepository.save(any())).thenAnswer(invocation -> {
             XuLyVanBan saved = invocation.getArgument(0);
@@ -123,7 +123,7 @@ class InternalWorkflowServiceImplTest {
 
     @Test
     void submitApproval_success_andIntegrationFlow() {
-        when(documentServiceClient.getDocumentById(1L)).thenReturn(new DocumentDetailDto(1L, "SKH", "TY", 1, "INCOMING", 1, 2L, LocalDateTime.now().plusDays(1), 1));
+        when(documentServiceClient.getDocumentById(1L)).thenReturn(new DocumentDetailDto(1L, "SKH", "TY", 1, "Cong van", "INCOMING", 1, 2L, LocalDateTime.now().plusDays(1), 1, false, false));
         when(xuLyVanBanRepository.save(any())).thenAnswer(invocation -> {
             XuLyVanBan saved = invocation.getArgument(0);
             saved.setId(66L);
@@ -211,7 +211,7 @@ class InternalWorkflowServiceImplTest {
 
     @Test
     void transferWorkflow_authValidateFail_shouldThrow() {
-        when(documentServiceClient.getDocumentById(1L)).thenReturn(new DocumentDetailDto(1L, "SKH", "TY", 1, "INCOMING", 1, 2L, LocalDateTime.now().plusDays(1), 1));
+        when(documentServiceClient.getDocumentById(1L)).thenReturn(new DocumentDetailDto(1L, "SKH", "TY", 1, "Cong van", "INCOMING", 1, 2L, LocalDateTime.now().plusDays(1), 1, false, false));
         doThrow(new ApiException(ErrorCode.USER_NOT_FOUND, HttpStatus.BAD_REQUEST, "Invalid users"))
                 .when(authServiceClient).validateUsers(List.of(100L, 200L));
 

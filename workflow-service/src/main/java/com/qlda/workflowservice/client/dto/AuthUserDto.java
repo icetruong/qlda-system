@@ -1,10 +1,14 @@
 package com.qlda.workflowservice.client.dto;
 
-import java.util.List;
-
 public record AuthUserDto(
-        Long userId,
+        Long id,
         String username,
-        List<String> roles
+        String hoTen,
+        String email,
+        Integer donViId,
+        String tenDonVi,
+        Integer nhomQuyenId,
+        String maNhomQuyen,
+        Integer trangThai
 ) {
 }

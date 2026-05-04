@@ -22,6 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 @TestPropertySource(properties = {
         "internal.auth.service-token=test-token",
+        "internal.auth.api-key=test-api-key",
         "internal.auth.allowed-services[0]=document-service"
 })
 class InternalWorkflowSecurityTest {
@@ -64,6 +65,17 @@ class InternalWorkflowSecurityTest {
 
         mockMvc.perform(get("/internal/workflows/statistics")
                         .header("Authorization", "Bearer test-token")
+                        .header("X-Service-Name", "document-service"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void validApiKey_shouldAllowRequest() throws Exception {
+        when(internalWorkflowService.getStatistics(any(), any(), any()))
+                .thenReturn(new InternalWorkflowStatisticsResponse(10, 5, 3, 2));
+
+        mockMvc.perform(get("/internal/workflows/statistics")
+                        .header("INTERNAL_API_KEY", "test-api-key")
                         .header("X-Service-Name", "document-service"))
                 .andExpect(status().isOk());
     }

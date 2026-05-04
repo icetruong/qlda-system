@@ -1,7 +1,10 @@
 package com.qlda.workflowservice.client.dto;
 
 public record AuthUnitDto(
-        Integer unitId,
-        String unitName
+        Integer id,
+        String maDonVi,
+        String tenDonVi,
+        Integer donViChaId,
+        Boolean suDung
 ) {
 }

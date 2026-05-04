@@ -7,10 +7,13 @@ public record DocumentDetailDto(
         String soKyHieu,
         String trichYeu,
         Integer loaiVanBanId,
+        String tenLoaiVanBan,
         String documentType,
         Integer donViChuTriId,
         Long nguoiTaoId,
         LocalDateTime hanXuLy,
-        Integer trangThai
+        Integer trangThai,
+        Boolean daOCR,
+        Boolean daKySo
 ) {
 }

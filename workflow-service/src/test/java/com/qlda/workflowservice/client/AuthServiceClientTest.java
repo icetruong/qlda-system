@@ -1,6 +1,7 @@
 package com.qlda.workflowservice.client;
 
 import com.qlda.workflowservice.client.dto.AuthPermissionCheckRequest;
+import com.qlda.workflowservice.client.dto.AuthPermissionDto;
 import com.qlda.workflowservice.client.dto.AuthPermissionCheckResponse;
 import com.qlda.workflowservice.client.dto.AuthUnitDto;
 import com.qlda.workflowservice.client.dto.AuthUserDto;
@@ -34,11 +35,11 @@ class AuthServiceClientTest {
 
     @Test
     void getUserAndUnit_success() {
-        when(authServiceHttpClient.getUserById(1L)).thenReturn(new AuthUserDto(1L, "A", List.of("LANH_DAO")));
-        when(authServiceHttpClient.getUnitById(1)).thenReturn(new AuthUnitDto(1, "Van phong"));
+        when(authServiceHttpClient.getUserById(1L)).thenReturn(new AuthUserDto(1L, "A", "Nguyen Van A", "a@x.com", 1, "Don vi", 2, "CHUYEN_VIEN", 1));
+        when(authServiceHttpClient.getUnitById(1)).thenReturn(new AuthUnitDto(1, "DV", "Van phong", null, true));
 
-        assertEquals(1L, authServiceClient.getUserById(1L).userId());
-        assertEquals(1, authServiceClient.getUnitById(1).unitId());
+        assertEquals(1L, authServiceClient.getUserById(1L).id());
+        assertEquals(1, authServiceClient.getUnitById(1).id());
     }
 
     @Test
@@ -64,9 +65,10 @@ class AuthServiceClientTest {
 
     @Test
     void getRolesAndPermission_success() {
-        when(authServiceHttpClient.getUserRoles(1L)).thenReturn(new AuthUserRolesDto(1L, List.of("LANH_DAO"), List.of("APPROVE")));
+        when(authServiceHttpClient.getUserRoles(1L)).thenReturn(new AuthUserRolesDto(1L, List.of("LANH_DAO"),
+                List.of(new AuthPermissionDto("DOCUMENT_APPROVAL", true, false, true, false, true))));
         when(authServiceHttpClient.checkPermission(new AuthPermissionCheckRequest(1L, "DOCUMENT_APPROVAL", "IsApprove")))
-                .thenReturn(new AuthPermissionCheckResponse(true, "DOCUMENT_APPROVAL", "IsApprove"));
+                .thenReturn(new AuthPermissionCheckResponse(true, 1L, "DOCUMENT_APPROVAL", "IsApprove"));
 
         assertEquals(1, authServiceClient.getUserRoles(1L).roles().size());
         assertEquals(true, authServiceClient.checkPermission(1L, "DOCUMENT_APPROVAL", "IsApprove").allowed());

@@ -22,6 +22,7 @@ import java.util.Set;
 public class InternalServiceAuthenticationFilter extends OncePerRequestFilter {
     private static final String AUTHORIZATION = "Authorization";
     private static final String SERVICE_NAME_HEADER = "X-Service-Name";
+    private static final String INTERNAL_API_KEY_HEADER = "INTERNAL_API_KEY";
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final InternalAuthProperties internalAuthProperties;
@@ -36,16 +37,13 @@ public class InternalServiceAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         String authorization = request.getHeader(AUTHORIZATION);
+        String internalApiKey = request.getHeader(INTERNAL_API_KEY_HEADER);
         String serviceName = request.getHeader(SERVICE_NAME_HEADER);
 
-        if (!StringUtils.hasText(authorization) || !authorization.startsWith(BEARER_PREFIX)) {
-            writeFailure(response, HttpStatus.UNAUTHORIZED, "Missing internal authorization header", "INVALID_REQUEST");
-            return;
-        }
-
-        String token = authorization.substring(BEARER_PREFIX.length());
-        if (!internalAuthProperties.getServiceToken().equals(token)) {
-            writeFailure(response, HttpStatus.UNAUTHORIZED, "Invalid internal service token", "FORBIDDEN");
+        boolean serviceTokenValid = isServiceTokenValid(authorization);
+        boolean apiKeyValid = isApiKeyValid(internalApiKey);
+        if (!serviceTokenValid && !apiKeyValid) {
+            writeFailure(response, HttpStatus.UNAUTHORIZED, "Missing or invalid internal credentials", "FORBIDDEN");
             return;
         }
 
@@ -61,6 +59,21 @@ public class InternalServiceAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private boolean isServiceTokenValid(String authorization) {
+        if (!StringUtils.hasText(authorization) || !authorization.startsWith(BEARER_PREFIX)) {
+            return false;
+        }
+        String token = authorization.substring(BEARER_PREFIX.length());
+        return StringUtils.hasText(internalAuthProperties.getServiceToken())
+                && internalAuthProperties.getServiceToken().equals(token);
+    }
+
+    private boolean isApiKeyValid(String internalApiKey) {
+        return StringUtils.hasText(internalAuthProperties.getApiKey())
+                && StringUtils.hasText(internalApiKey)
+                && internalAuthProperties.getApiKey().equals(internalApiKey);
     }
 
     private void writeFailure(HttpServletResponse response, HttpStatus status, String message, String errorCode) throws IOException {
