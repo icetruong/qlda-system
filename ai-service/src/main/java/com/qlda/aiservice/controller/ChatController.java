@@ -5,6 +5,7 @@ import com.qlda.aiservice.dto.ChatResponse;
 import com.qlda.aiservice.exception.GeminiRateLimitException;
 import com.qlda.aiservice.service.GeminiService;
 import com.qlda.aiservice.service.RateLimiterService;
+import com.qlda.aiservice.service.RetrieverService;
 import io.github.bucket4j.ConsumptionProbe;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -23,6 +25,7 @@ public class ChatController {
 
     private final GeminiService geminiService;
     private final RateLimiterService rateLimiterService;
+    private final RetrieverService retrieverService;
 
     @PostMapping
     public ResponseEntity<ChatResponse> chat(
@@ -67,7 +70,10 @@ public class ChatController {
         }
 
         try {
-            String reply = geminiService.chat(request.getMessage());
+            List<String> chunks = retrieverService.searchByKeyword(request.getMessage());
+            String context = String.join("\n---\n", chunks);
+
+            String reply = geminiService.chat(request.getMessage(), context);
         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt);
         log.info("Chat success requestId={} clientId={} durationMs={} replyLength={}",
             requestId, clientId, durationMs, reply != null ? reply.length() : 0);

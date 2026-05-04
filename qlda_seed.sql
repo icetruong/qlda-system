@@ -36,8 +36,8 @@ INSERT INTO nguoidung (id, username, hoten, email, dienthoai, donviid, chucvu, n
 VALUES
 (1001, 'admin', 'Administrator', '102230238@sv1.dut.udn.vn', '0987000001', 1, 'Kỹ thuật', 1, NULL, 1),
 (1002, 'nguyenvana', 'Trần Khả Hào', 'trankhahao7@gmail.com', '0987000002', 1, 'Chuyên viên', 2, NULL, 1),
-(1003, 'truongdv', 'Trương ĐV', 'truongdv@coquan.gov.vn', '0987000003', 3, 'Trưởng phòng', 3, NULL, 1);
-
+(1003, 'truongdv', 'Trương ĐV', 'truongdv@coquan.gov.vn', '0987000003', 3, 'Trưởng phòng', 3, NULL, 1),
+(1004, 'icetruong', 'Phan Van Truong', '102230222@sv1.dut.udn.vn', '09' || FLOOR(RANDOM()*100000000)::text, 2, 'Chuyên viên', 2, NULL, 1);
 
 INSERT INTO loaivanban (id, maloaivanban, tenloaivanban, mota, sudung)
 VALUES

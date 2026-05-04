@@ -131,6 +131,21 @@ public class GeminiService {
         }
     }
 
+    public String chat(String userMessage, String context) {
+        String finalPrompt = """
+        Dữ liệu hệ thống tìm được:
+        %s
+
+        Câu hỏi người dùng:
+        %s
+
+        Hãy trả lời dựa trên dữ liệu hệ thống phía trên.
+        Nếu không có dữ liệu phù hợp, nói rằng không tìm thấy tài liệu phù hợp.
+        """.formatted(context, userMessage);
+
+        return chat(finalPrompt);
+    }
+
     @SuppressWarnings("unchecked")
     private String extractText(Map<?, ?> body, String requestId) {
         try {
