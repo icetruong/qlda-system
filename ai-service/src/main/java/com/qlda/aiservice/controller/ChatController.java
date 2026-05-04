@@ -70,10 +70,23 @@ public class ChatController {
         }
 
         try {
-            List<String> chunks = retrieverService.searchByKeyword(request.getMessage());
+            List<String> chunks = retrieverService.searchUserGuide(request.getMessage());
+
+            if (chunks.isEmpty()) {
+                return ResponseEntity.ok(new ChatResponse(
+                        "Không tìm thấy hướng dẫn phù hợp trong hệ thống.",
+                        true,
+                        null,
+                        null
+                ));
+            }
+
             String context = String.join("\n---\n", chunks);
 
-            String reply = geminiService.chat(request.getMessage(), context);
+            String reply = geminiService.chatUserGuide(request.getMessage(), context);
+            log.info("chunks size={}", chunks.size());
+            log.info("context={}", context);
+            log.info("reply={}", reply);
         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt);
         log.info("Chat success requestId={} clientId={} durationMs={} replyLength={}",
             requestId, clientId, durationMs, reply != null ? reply.length() : 0);
