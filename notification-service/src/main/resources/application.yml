@@ -1,11 +1,13 @@
 spring:
   application:
     name: notification-service
+
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/QLDA}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:123456}
     driver-class-name: org.postgresql.Driver
+
   jpa:
     hibernate:
       ddl-auto: none
@@ -13,20 +15,26 @@ spring:
     properties:
       hibernate:
         format_sql: true
+
   jackson:
-    time-zone: Asia/Bangkok
+    time-zone: Asia/Ho_Chi_Minh
+
   kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
       group-id: notification-service
       auto-offset-reset: earliest
+
   cloud:
     compatibility-verifier:
       enabled: false
+
   security:
     oauth2:
       resourceserver:
         jwt:
           public-key-location: classpath:public.pem
+
   mail:
     host: ${OUTLOOK_SMTP_HOST:smtp-mail.outlook.com}
     port: ${OUTLOOK_SMTP_PORT:587}
@@ -41,17 +49,23 @@ spring:
             required: true
 
 server:
-  port: ${SERVER_PORT:8084}
+  port: ${SERVER_PORT:8085}
 
 eureka:
   client:
-    enabled: ${EUREKA_ENABLED:false}
+    enabled: ${EUREKA_ENABLED:true}
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka}
+    register-with-eureka: true
+    fetch-registry: true
 
 app:
   upload-dir: ${APP_UPLOAD_DIR:uploads}
+
   notification:
     email:
       from: ${OUTLOOK_SMTP_FROM:${OUTLOOK_SMTP_USERNAME:}}
+
   kafka:
     notification-topic: ${NOTIFICATION_EVENTS_TOPIC:notification-events}
     notification-dlq-topic: ${NOTIFICATION_EVENTS_DLQ_TOPIC:notification-events-dlq}
