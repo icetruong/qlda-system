@@ -1,11 +1,17 @@
 package com.qlda.workflowservice.service.impl;
 
+import com.qlda.workflowservice.client.AuthServiceClient;
+import com.qlda.workflowservice.client.DocumentServiceClient;
+import com.qlda.workflowservice.client.dto.AuthUserDto;
+import com.qlda.workflowservice.client.dto.DocumentDetailDto;
 import com.qlda.workflowservice.common.PageResponse;
 import com.qlda.workflowservice.dto.request.*;
 import com.qlda.workflowservice.dto.response.*;
 import com.qlda.workflowservice.entity.BuocQuyTrinh;
 import com.qlda.workflowservice.entity.QuyTrinh;
 import com.qlda.workflowservice.entity.XuLyVanBan;
+import com.qlda.workflowservice.event.NotificationEvent;
+import com.qlda.workflowservice.event.publisher.NotificationEventPublisher;
 import com.qlda.workflowservice.exception.ApiException;
 import com.qlda.workflowservice.exception.ErrorCode;
 import com.qlda.workflowservice.repository.BuocQuyTrinhRepository;
@@ -43,6 +49,12 @@ class WorkflowApiServiceImplTest {
     private BuocQuyTrinhRepository buocQuyTrinhRepository;
     @Mock
     private XuLyVanBanRepository xuLyVanBanRepository;
+    @Mock
+    private DocumentServiceClient documentServiceClient;
+    @Mock
+    private AuthServiceClient authServiceClient;
+    @Mock
+    private NotificationEventPublisher notificationEventPublisher;
 
     @InjectMocks
     private WorkflowApiServiceImpl service;
@@ -239,12 +251,41 @@ class WorkflowApiServiceImplTest {
         Pageable pageable = PageRequest.of(0, 5);
         PageImpl<XuLyVanBan> page = new PageImpl<>(List.of(processing), pageable, 1);
         when(xuLyVanBanRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
+        when(documentServiceClient.getDocumentById(999L)).thenReturn(new DocumentDetailDto(
+                999L, "SKH-999", "Trich yeu 999", 1, "Cong van", "INCOMING",
+                1, 1L, LocalDateTime.now().plusDays(1), 1, false, false
+        ));
+        when(authServiceClient.getUserById(1L)).thenReturn(new AuthUserDto(
+                1L, "nva", "Nguyen Van A", "nva@test.local", 1, "Phong A", 1, "ROLE_A", 1
+        ));
 
         PageResponse<PendingApprovalResponse> response = service.getPendingApprovals(2L, "transfer",
                 LocalDate.now().minusDays(1), LocalDate.now(), pageable);
 
         assertEquals(1, response.getTotalElements());
         assertEquals(processing.getId(), response.getContent().getFirst().processingId());
+        assertEquals("SKH-999", response.getContent().getFirst().soKyHieu());
+        assertEquals("Trich yeu 999", response.getContent().getFirst().trichYeu());
+        assertEquals("Nguyen Van A", response.getContent().getFirst().nguoiGuiTen());
+        verify(documentServiceClient).getDocumentById(999L);
+        verify(authServiceClient).getUserById(1L);
+    }
+
+    @Test
+    void getPendingApprovals_enrichFail_shouldReturnBasicData() {
+        Pageable pageable = PageRequest.of(0, 5);
+        PageImpl<XuLyVanBan> page = new PageImpl<>(List.of(processing), pageable, 1);
+        when(xuLyVanBanRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
+        when(documentServiceClient.getDocumentById(999L)).thenThrow(new RuntimeException("document-service down"));
+        when(authServiceClient.getUserById(1L)).thenThrow(new RuntimeException("auth-service down"));
+
+        PageResponse<PendingApprovalResponse> response = service.getPendingApprovals(2L, "transfer",
+                LocalDate.now().minusDays(1), LocalDate.now(), pageable);
+
+        assertEquals(1, response.getTotalElements());
+        assertEquals(999L, response.getContent().getFirst().documentId());
+        assertNull(response.getContent().getFirst().soKyHieu());
+        assertNull(response.getContent().getFirst().nguoiGuiTen());
     }
 
     @Test
@@ -260,22 +301,37 @@ class WorkflowApiServiceImplTest {
     @Test
     void approveDocument_success() {
         when(xuLyVanBanRepository.findById(100L)).thenReturn(Optional.of(processing));
+        when(documentServiceClient.getDocumentById(999L)).thenReturn(new DocumentDetailDto(
+                999L, "SKH", "TY", 1, "Cong van", "INCOMING", 1, 1L, LocalDateTime.now().plusDays(1), 1, false, false
+        ));
 
         ApprovalActionResponse response = service.approveDocument(100L, new ApprovalApproveRequest("OK", true));
 
         assertEquals(2, response.trangThaiXuLy());
         assertEquals(100, processing.getTyLeHoanThanh());
         assertNotNull(processing.getNgayHoanThanh());
+        verify(documentServiceClient).updateDocumentStatus(eq(999L), any());
+        verify(documentServiceClient).updateDocumentWorkflowStatus(eq(999L), any());
+        ArgumentCaptor<NotificationEvent> eventCaptor = ArgumentCaptor.forClass(NotificationEvent.class);
+        verify(notificationEventPublisher).publish(eventCaptor.capture());
+        assertEquals("WORKFLOW_APPROVED", eventCaptor.getValue().eventType());
     }
 
     @Test
     void rejectDocument_success() {
         when(xuLyVanBanRepository.findById(100L)).thenReturn(Optional.of(processing));
+        when(documentServiceClient.getDocumentById(999L)).thenReturn(new DocumentDetailDto(
+                999L, "SKH", "TY", 1, "Cong van", "INCOMING", 1, 1L, LocalDateTime.now().plusDays(1), 1, false, false
+        ));
 
         ApprovalActionResponse response = service.rejectDocument(100L, new ApprovalRejectRequest("Khong hop le"));
 
         assertEquals(3, response.trangThaiXuLy());
         assertEquals("Khong hop le", processing.getYKienXuLy());
+        verify(documentServiceClient).updateDocumentStatus(eq(999L), any());
+        ArgumentCaptor<NotificationEvent> eventCaptor = ArgumentCaptor.forClass(NotificationEvent.class);
+        verify(notificationEventPublisher).publish(eventCaptor.capture());
+        assertEquals("WORKFLOW_REJECTED", eventCaptor.getValue().eventType());
     }
 
     @Test
@@ -310,18 +366,30 @@ class WorkflowApiServiceImplTest {
 
     @Test
     void getDocumentTimeline_sortedByNgayNhanThenId() {
-        XuLyVanBan first = XuLyVanBan.builder().id(1L).vanBanId(999L).ngayNhan(LocalDateTime.now().minusHours(2)).trangThaiXuLy(2).build();
-        XuLyVanBan second = XuLyVanBan.builder().id(2L).vanBanId(999L).ngayNhan(LocalDateTime.now().minusHours(1)).trangThaiXuLy(1).build();
+        XuLyVanBan first = XuLyVanBan.builder().id(1L).vanBanId(999L).nguoiNhanId(2L).ngayNhan(LocalDateTime.now().minusHours(2)).trangThaiXuLy(2).build();
+        XuLyVanBan second = XuLyVanBan.builder().id(2L).vanBanId(999L).nguoiNhanId(2L).ngayNhan(LocalDateTime.now().minusHours(1)).trangThaiXuLy(1).build();
         when(xuLyVanBanRepository.findByVanBanIdOrderByIdAsc(999L)).thenReturn(List.of(second, first));
+        when(documentServiceClient.getDocumentById(999L)).thenReturn(new DocumentDetailDto(
+                999L, "SKH", "TY", 1, "Cong van", "INCOMING", 1, 1L, LocalDateTime.now().plusDays(1), 1, false, false
+        ));
+        when(authServiceClient.getUserById(2L)).thenReturn(new AuthUserDto(
+                2L, "tvb", "Tran Van B", "tvb@test.local", 1, "Phong A", 1, "ROLE_A", 1
+        ));
 
         List<TimelineItemResponse> timeline = service.getDocumentTimeline(999L);
 
         assertEquals(1L, timeline.get(0).processingId());
         assertEquals(2L, timeline.get(1).processingId());
+        assertEquals("Tran Van B", timeline.get(1).nguoiXuLy());
+        verify(documentServiceClient).getDocumentById(999L);
+        verify(authServiceClient, times(2)).getUserById(2L);
     }
 
     @Test
     void transferDocument_success() {
+        when(documentServiceClient.getDocumentById(999L)).thenReturn(new DocumentDetailDto(
+                999L, "SKH", "TY", 1, "Cong van", "INCOMING", 1, 1L, LocalDateTime.now().plusDays(1), 1, false, false
+        ));
         when(buocQuyTrinhRepository.findById(11L)).thenReturn(Optional.of(step));
         when(xuLyVanBanRepository.save(any(XuLyVanBan.class))).thenAnswer(i -> {
             XuLyVanBan saved = i.getArgument(0);
@@ -333,6 +401,34 @@ class WorkflowApiServiceImplTest {
                 new TransferDocumentRequest(1L, 2L, 3, 11L, "TRANSFER", "Y kien", LocalDateTime.now().plusHours(3)));
 
         assertEquals(555L, response.processingId());
+        assertEquals(1, response.trangThaiXuLy());
+        verify(documentServiceClient).getDocumentById(999L);
+        verify(authServiceClient).validateUsers(List.of(1L, 2L));
+        verify(authServiceClient).validateUnits(List.of(3));
+        verify(documentServiceClient).updateDocumentAssignee(eq(999L), any());
+        verify(documentServiceClient).updateDocumentWorkflowStatus(eq(999L), any());
+        ArgumentCaptor<NotificationEvent> eventCaptor = ArgumentCaptor.forClass(NotificationEvent.class);
+        verify(notificationEventPublisher).publish(eventCaptor.capture());
+        assertEquals("WORKFLOW_TRANSFERRED", eventCaptor.getValue().eventType());
+    }
+
+    @Test
+    void transferDocument_publishFails_shouldStillSucceed() {
+        when(documentServiceClient.getDocumentById(999L)).thenReturn(new DocumentDetailDto(
+                999L, "SKH", "TY", 1, "Cong van", "INCOMING", 1, 1L, LocalDateTime.now().plusDays(1), 1, false, false
+        ));
+        when(buocQuyTrinhRepository.findById(11L)).thenReturn(Optional.of(step));
+        when(xuLyVanBanRepository.save(any(XuLyVanBan.class))).thenAnswer(i -> {
+            XuLyVanBan saved = i.getArgument(0);
+            saved.setId(556L);
+            return saved;
+        });
+        doThrow(new RuntimeException("Kafka unavailable")).when(notificationEventPublisher).publish(any(NotificationEvent.class));
+
+        TransferResponse response = service.transferDocument(999L,
+                new TransferDocumentRequest(1L, 2L, 3, 11L, "TRANSFER", "Y kien", LocalDateTime.now().plusHours(3)));
+
+        assertEquals(556L, response.processingId());
         assertEquals(1, response.trangThaiXuLy());
     }
 
@@ -350,12 +446,18 @@ class WorkflowApiServiceImplTest {
     @Test
     void completeProcessing_whenPercentNull_defaults100() {
         when(xuLyVanBanRepository.findById(100L)).thenReturn(Optional.of(processing));
+        when(xuLyVanBanRepository.findByVanBanIdOrderByIdAsc(999L)).thenReturn(List.of(processing));
 
         CompleteResponse response = service.completeProcessing(100L, new CompleteProcessingRequest("xong", "/file", null));
 
         assertEquals(100, response.tyLeHoanThanh());
         assertEquals(2, response.trangThaiXuLy());
         assertNotNull(response.ngayHoanThanh());
+        verify(documentServiceClient).updateDocumentWorkflowStatus(eq(999L), any());
+        verify(documentServiceClient).updateDocumentStatus(eq(999L), any());
+        ArgumentCaptor<NotificationEvent> eventCaptor = ArgumentCaptor.forClass(NotificationEvent.class);
+        verify(notificationEventPublisher).publish(eventCaptor.capture());
+        assertEquals("WORKFLOW_COMPLETED", eventCaptor.getValue().eventType());
     }
 
     @Test
@@ -370,12 +472,19 @@ class WorkflowApiServiceImplTest {
     }
 
     @Test
-    void sendReminders_returnsInputSize() {
+    void sendReminders_returnsInputSize_andPublishSlaEvents() {
+        XuLyVanBan first = XuLyVanBan.builder().id(1L).vanBanId(11L).nguoiNhanId(2L).nguoiGuiId(1L).hanXuLy(LocalDateTime.now().minusHours(1)).build();
+        XuLyVanBan second = XuLyVanBan.builder().id(2L).vanBanId(12L).nguoiNhanId(3L).nguoiGuiId(1L).hanXuLy(LocalDateTime.now().minusHours(2)).build();
+        when(xuLyVanBanRepository.findById(1L)).thenReturn(Optional.of(first));
+        when(xuLyVanBanRepository.findById(2L)).thenReturn(Optional.of(second));
+        when(xuLyVanBanRepository.findById(3L)).thenReturn(Optional.of(processing));
+
         ReminderSendResponse response = service.sendReminders(
                 new ReminderSendRequest(List.of(1L, 2L, 3L), List.of("SYSTEM", "EMAIL"), "Nhac viec"));
 
         assertEquals(3, response.totalSent());
         assertEquals(List.of("SYSTEM", "EMAIL"), response.kenhGui());
+        verify(notificationEventPublisher, times(3)).publish(any(NotificationEvent.class));
     }
 
     @Test

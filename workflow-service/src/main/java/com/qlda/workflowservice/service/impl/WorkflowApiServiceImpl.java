@@ -1,11 +1,19 @@
 package com.qlda.workflowservice.service.impl;
 
+import com.qlda.workflowservice.client.AuthServiceClient;
+import com.qlda.workflowservice.client.DocumentServiceClient;
+import com.qlda.workflowservice.client.dto.AuthUserDto;
+import com.qlda.workflowservice.client.dto.DocumentAssigneeUpdateRequest;
+import com.qlda.workflowservice.client.dto.DocumentStatusUpdateRequest;
+import com.qlda.workflowservice.client.dto.DocumentWorkflowStatusUpdateRequest;
 import com.qlda.workflowservice.common.PageResponse;
 import com.qlda.workflowservice.dto.request.*;
 import com.qlda.workflowservice.dto.response.*;
 import com.qlda.workflowservice.entity.BuocQuyTrinh;
 import com.qlda.workflowservice.entity.QuyTrinh;
 import com.qlda.workflowservice.entity.XuLyVanBan;
+import com.qlda.workflowservice.event.NotificationEvent;
+import com.qlda.workflowservice.event.publisher.NotificationEventPublisher;
 import com.qlda.workflowservice.exception.ApiException;
 import com.qlda.workflowservice.exception.ErrorCode;
 import com.qlda.workflowservice.repository.BuocQuyTrinhRepository;
@@ -15,6 +23,7 @@ import com.qlda.workflowservice.service.WorkflowApiService;
 import com.qlda.workflowservice.specification.QuyTrinhSpecification;
 import com.qlda.workflowservice.specification.XuLyVanBanSpecification;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -26,15 +35,25 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class WorkflowApiServiceImpl implements WorkflowApiService {
     private static final String UNIT_HOUR = "HOUR";
+    private static final String SOURCE_SERVICE = "workflow-service";
+    private static final String WORKFLOW_STATUS_PROCESSING = "PROCESSING";
+    private static final String WORKFLOW_STATUS_APPROVED = "APPROVED";
+    private static final String WORKFLOW_STATUS_REJECTED = "REJECTED";
+    private static final String WORKFLOW_STATUS_COMPLETED = "COMPLETED";
     private static final int STATUS_PENDING = 1;
     private static final int STATUS_APPROVED = 2;
     private static final int STATUS_REJECTED = 3;
@@ -42,6 +61,9 @@ public class WorkflowApiServiceImpl implements WorkflowApiService {
     private final QuyTrinhRepository quyTrinhRepository;
     private final BuocQuyTrinhRepository buocQuyTrinhRepository;
     private final XuLyVanBanRepository xuLyVanBanRepository;
+    private final DocumentServiceClient documentServiceClient;
+    private final AuthServiceClient authServiceClient;
+    private final NotificationEventPublisher notificationEventPublisher;
 
     // TODO: Replace with DB table when delegation schema is available.
     private final AtomicLong delegationIdSequence = new AtomicLong(0);
@@ -176,7 +198,7 @@ public class WorkflowApiServiceImpl implements WorkflowApiService {
     @Transactional(readOnly = true)
     public PageResponse<PendingApprovalResponse> getPendingApprovals(Long nguoiDuyetId, String keyword, LocalDate fromDate, LocalDate toDate, Pageable pageable) {
         var page = xuLyVanBanRepository.findAll(XuLyVanBanSpecification.pendingApprovals(nguoiDuyetId, keyword, fromDate, toDate), pageable)
-                .map(this::mapPendingApproval);
+                .map(this::mapPendingApprovalWithEnrichment);
         return PageResponse.from(page);
     }
 
@@ -193,11 +215,28 @@ public class WorkflowApiServiceImpl implements WorkflowApiService {
     @Transactional
     public ApprovalActionResponse approveDocument(Long processingId, ApprovalApproveRequest request) {
         XuLyVanBan processing = getProcessingOrThrow(processingId);
+        documentServiceClient.getDocumentById(processing.getVanBanId());
         processing.setYKienXuLy(request.yKienXuLy());
         processing.setTrangThaiXuLy(STATUS_APPROVED);
         processing.setNgayHoanThanh(LocalDateTime.now());
         processing.setTyLeHoanThanh(100);
         xuLyVanBanRepository.save(processing);
+        documentServiceClient.updateDocumentStatus(processing.getVanBanId(), new DocumentStatusUpdateRequest(processing.getTrangThaiXuLy()));
+        documentServiceClient.updateDocumentWorkflowStatus(
+                processing.getVanBanId(),
+                new DocumentWorkflowStatusUpdateRequest(WORKFLOW_STATUS_APPROVED, processing.getId())
+        );
+        publishSafely(buildWorkflowEvent(
+                "WORKFLOW_APPROVED",
+                collectReceiverIds(processing.getNguoiGuiId()),
+                "Van ban da duoc phe duyet",
+                "Van ban ma ban theo doi da duoc phe duyet",
+                processing.getId(),
+                metadataOf(
+                        "documentId", processing.getVanBanId(),
+                        "processingId", processing.getId(),
+                        "nguoiPheDuyetId", processing.getNguoiNhanId()
+                )));
         return new ApprovalActionResponse(processing.getId(), processing.getVanBanId(), processing.getTrangThaiXuLy(), processing.getYKienXuLy(), processing.getNgayHoanThanh());
     }
 
@@ -205,10 +244,27 @@ public class WorkflowApiServiceImpl implements WorkflowApiService {
     @Transactional
     public ApprovalActionResponse rejectDocument(Long processingId, ApprovalRejectRequest request) {
         XuLyVanBan processing = getProcessingOrThrow(processingId);
+        documentServiceClient.getDocumentById(processing.getVanBanId());
         processing.setYKienXuLy(request.lyDoTuChoi());
         processing.setTrangThaiXuLy(STATUS_REJECTED);
         processing.setNgayHoanThanh(LocalDateTime.now());
         xuLyVanBanRepository.save(processing);
+        documentServiceClient.updateDocumentStatus(processing.getVanBanId(), new DocumentStatusUpdateRequest(processing.getTrangThaiXuLy()));
+        documentServiceClient.updateDocumentWorkflowStatus(
+                processing.getVanBanId(),
+                new DocumentWorkflowStatusUpdateRequest(WORKFLOW_STATUS_REJECTED, processing.getId())
+        );
+        publishSafely(buildWorkflowEvent(
+                "WORKFLOW_REJECTED",
+                collectReceiverIds(processing.getNguoiGuiId()),
+                "Van ban bi tu choi",
+                "Van ban ma ban theo doi da bi tu choi",
+                processing.getId(),
+                metadataOf(
+                        "documentId", processing.getVanBanId(),
+                        "processingId", processing.getId(),
+                        "nguoiPheDuyetId", processing.getNguoiNhanId()
+                )));
         return new ApprovalActionResponse(processing.getId(), processing.getVanBanId(), processing.getTrangThaiXuLy(), request.lyDoTuChoi(), processing.getNgayHoanThanh());
     }
 
@@ -276,6 +332,7 @@ public class WorkflowApiServiceImpl implements WorkflowApiService {
     @Override
     @Transactional(readOnly = true)
     public List<TimelineItemResponse> getDocumentTimeline(Long documentId) {
+        documentServiceClient.getDocumentById(documentId);
         return xuLyVanBanRepository.findByVanBanIdOrderByIdAsc(documentId).stream()
                 .sorted(Comparator
                         .comparing(XuLyVanBan::getNgayNhan, Comparator.nullsLast(Comparator.naturalOrder()))
@@ -283,7 +340,7 @@ public class WorkflowApiServiceImpl implements WorkflowApiService {
                 .map(item -> new TimelineItemResponse(
                         item.getId(),
                         item.getBuocQuyTrinh() != null ? item.getBuocQuyTrinh().getTenBuoc() : null,
-                        null, // TODO: Resolve display name from auth-service.
+                        resolveUserDisplayName(item.getNguoiNhanId()),
                         item.getHanhDongXuLy(),
                         item.getYKienXuLy(),
                         item.getNgayNhan(),
@@ -310,12 +367,34 @@ public class WorkflowApiServiceImpl implements WorkflowApiService {
 
     @Override
     public ReminderSendResponse sendReminders(ReminderSendRequest request) {
+        for (Long processingId : request.processingIds()) {
+            XuLyVanBan processing = getProcessingOrThrow(processingId);
+            List<Long> receiverIds = collectReceiverIds(processing.getNguoiNhanId(), processing.getNguoiGuiId());
+            publishSafely(buildWorkflowEvent(
+                    "WORKFLOW_SLA_VIOLATED",
+                    receiverIds,
+                    "Canh bao SLA",
+                    request.noiDung() == null ? "Co van ban co nguy co vi pham SLA" : request.noiDung(),
+                    processing.getId(),
+                    metadataOf(
+                            "documentId", processing.getVanBanId(),
+                            "processingId", processing.getId(),
+                            "hanXuLy", processing.getHanXuLy()
+                    )
+            ));
+        }
         return new ReminderSendResponse(request.processingIds().size(), request.kenhGui());
     }
 
     @Override
     @Transactional
     public TransferResponse transferDocument(Long documentId, TransferDocumentRequest request) {
+        documentServiceClient.getDocumentById(documentId);
+        authServiceClient.validateUsers(List.of(request.nguoiGuiId(), request.nguoiNhanId()));
+        if (request.donViXuLyId() != null) {
+            authServiceClient.validateUnits(List.of(request.donViXuLyId()));
+        }
+
         BuocQuyTrinh step = null;
         if (request.buocQuyTrinhId() != null) {
             step = buocQuyTrinhRepository.findById(request.buocQuyTrinhId())
@@ -335,6 +414,27 @@ public class WorkflowApiServiceImpl implements WorkflowApiService {
                 .trangThaiXuLy(STATUS_PENDING)
                 .tyLeHoanThanh(0)
                 .build());
+        documentServiceClient.updateDocumentAssignee(
+                documentId,
+                new DocumentAssigneeUpdateRequest(saved.getNguoiNhanId(), saved.getDonViXuLyId())
+        );
+        documentServiceClient.updateDocumentWorkflowStatus(
+                documentId,
+                new DocumentWorkflowStatusUpdateRequest(WORKFLOW_STATUS_PROCESSING, saved.getId())
+        );
+        publishSafely(buildWorkflowEvent(
+                "WORKFLOW_TRANSFERRED",
+                collectReceiverIds(saved.getNguoiNhanId()),
+                "Ban co van ban moi can xu ly",
+                "Mot van ban vua duoc chuyen den ban de xu ly",
+                saved.getId(),
+                metadataOf(
+                        "documentId", documentId,
+                        "processingId", saved.getId(),
+                        "nguoiGuiId", saved.getNguoiGuiId(),
+                        "nguoiNhanId", saved.getNguoiNhanId()
+                )
+        ));
 
         return new TransferResponse(saved.getId(), saved.getVanBanId(), saved.getNguoiNhanId(), saved.getTrangThaiXuLy());
     }
@@ -362,6 +462,25 @@ public class WorkflowApiServiceImpl implements WorkflowApiService {
         processing.setNgayHoanThanh(LocalDateTime.now());
         processing.setTrangThaiXuLy(STATUS_APPROVED);
         xuLyVanBanRepository.save(processing);
+        documentServiceClient.updateDocumentWorkflowStatus(
+                processing.getVanBanId(),
+                new DocumentWorkflowStatusUpdateRequest(WORKFLOW_STATUS_COMPLETED, processing.getId())
+        );
+        if (isDocumentFullyCompleted(processing.getVanBanId())) {
+            documentServiceClient.updateDocumentStatus(processing.getVanBanId(), new DocumentStatusUpdateRequest(processing.getTrangThaiXuLy()));
+        }
+        publishSafely(buildWorkflowEvent(
+                "WORKFLOW_COMPLETED",
+                collectReceiverIds(processing.getNguoiGuiId(), processing.getNguoiNhanId()),
+                "Van ban da hoan thanh xu ly",
+                "Quy trinh xu ly van ban da duoc hoan tat",
+                processing.getId(),
+                metadataOf(
+                        "documentId", processing.getVanBanId(),
+                        "processingId", processing.getId(),
+                        "tyLeHoanThanh", processing.getTyLeHoanThanh()
+                )
+        ));
         return new CompleteResponse(
                 processing.getId(),
                 processing.getNgayHoanThanh(),
@@ -477,14 +596,35 @@ public class WorkflowApiServiceImpl implements WorkflowApiService {
         );
     }
 
-    private PendingApprovalResponse mapPendingApproval(XuLyVanBan entity) {
+    private PendingApprovalResponse mapPendingApprovalWithEnrichment(XuLyVanBan entity) {
+        String soKyHieu = null;
+        String trichYeu = null;
+        String nguoiGuiTen = null;
+
+        try {
+            var document = documentServiceClient.getDocumentById(entity.getVanBanId());
+            soKyHieu = document.soKyHieu();
+            trichYeu = document.trichYeu();
+        } catch (Exception exception) {
+            log.warn("Pending approvals enrich document failed: processingId={}, documentId={}",
+                    entity.getId(), entity.getVanBanId(), exception);
+        }
+
+        try {
+            AuthUserDto sender = authServiceClient.getUserById(entity.getNguoiGuiId());
+            nguoiGuiTen = sender != null ? sender.hoTen() : null;
+        } catch (Exception exception) {
+            log.warn("Pending approvals enrich sender failed: processingId={}, nguoiGuiId={}",
+                    entity.getId(), entity.getNguoiGuiId(), exception);
+        }
+
         return new PendingApprovalResponse(
                 entity.getId(),
                 entity.getVanBanId(),
-                null, // TODO: Resolve from document-service.
-                null, // TODO: Resolve from document-service.
+                soKyHieu,
+                trichYeu,
                 entity.getNguoiGuiId(),
-                null, // TODO: Resolve from auth-service.
+                nguoiGuiTen,
                 entity.getNgayNhan(),
                 entity.getHanXuLy(),
                 entity.getTrangThaiXuLy()
@@ -527,6 +667,76 @@ public class WorkflowApiServiceImpl implements WorkflowApiService {
         int end = Math.min(start + pageable.getPageSize(), data.size());
         var page = new PageImpl<>(new ArrayList<>(data.subList(start, end)), pageable, data.size());
         return PageResponse.from(page);
+    }
+
+    private String resolveUserDisplayName(Long userId) {
+        if (userId == null) {
+            return null;
+        }
+        try {
+            AuthUserDto user = authServiceClient.getUserById(userId);
+            return user != null ? user.hoTen() : null;
+        } catch (Exception exception) {
+            log.warn("Resolve user display name failed: userId={}", userId, exception);
+            return null;
+        }
+    }
+
+    private boolean isDocumentFullyCompleted(Long documentId) {
+        return xuLyVanBanRepository.findByVanBanIdOrderByIdAsc(documentId).stream()
+                .noneMatch(item -> Integer.valueOf(STATUS_PENDING).equals(item.getTrangThaiXuLy()));
+    }
+
+    private List<Long> collectReceiverIds(Long... userIds) {
+        Set<Long> ids = new HashSet<>();
+        for (Long userId : userIds) {
+            if (userId != null) {
+                ids.add(userId);
+            }
+        }
+        return List.copyOf(ids);
+    }
+
+    private Map<String, Object> metadataOf(Object... keyValues) {
+        Map<String, Object> metadata = new HashMap<>();
+        for (int i = 0; i < keyValues.length; i += 2) {
+            String key = (String) keyValues[i];
+            Object value = keyValues[i + 1];
+            metadata.put(key, value);
+        }
+        return metadata;
+    }
+
+    private NotificationEvent buildWorkflowEvent(
+            String eventType,
+            List<Long> nguoiNhanIds,
+            String tieuDe,
+            String noiDung,
+            Long referenceId,
+            Map<String, Object> metadata
+    ) {
+        return new NotificationEvent(
+                UUID.randomUUID().toString(),
+                eventType,
+                SOURCE_SERVICE,
+                nguoiNhanIds,
+                tieuDe,
+                noiDung,
+                "NHAC_VIEC",
+                List.of("SYSTEM", "EMAIL"),
+                "WORKFLOW",
+                referenceId,
+                metadata,
+                LocalDateTime.now()
+        );
+    }
+
+    private void publishSafely(NotificationEvent event) {
+        try {
+            notificationEventPublisher.publish(event);
+        } catch (Exception exception) {
+            log.warn("Publish notification event failed: type={}, referenceId={}", event.eventType(), event.referenceId(), exception);
+        }
     }
 
     private record DelegationRecord(
