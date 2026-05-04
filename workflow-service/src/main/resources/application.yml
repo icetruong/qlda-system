@@ -33,3 +33,20 @@ eureka:
 
 app:
   upload-dir: ${APP_UPLOAD_DIR:uploads}
+  kafka:
+    notification-topic: ${NOTIFICATION_EVENTS_TOPIC:notification-events}
+
+services:
+  document-service:
+    base-url: ${DOCUMENT_SERVICE_URL:http://localhost:8082}
+  auth-service:
+    base-url: ${AUTH_SERVICE_URL:http://localhost:8081}
+
+internal:
+  auth:
+    service-name: ${INTERNAL_SERVICE_NAME:workflow-service}
+    service-token: ${INTERNAL_SERVICE_TOKEN:change-me-in-dev}
+    allowed-services:
+      - document-service
+      - report-service
+      - support-service

@@ -4,10 +4,12 @@ import com.qlda.notificationservice.common.exception.AppException;
 import com.qlda.notificationservice.common.exception.ErrorCode;
 import com.qlda.notificationservice.notification.dto.NotificationCreateRequest;
 import com.qlda.notificationservice.notification.dto.NotificationReadRequest;
+import com.qlda.notificationservice.notification.dto.NotificationSendRequest;
 import com.qlda.notificationservice.notification.entity.ThongBao;
 import com.qlda.notificationservice.notification.repository.ThongBaoRepository;
 import com.qlda.notificationservice.notification.service.NotificationService;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,6 +22,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 @ExtendWith(MockitoExtension.class)
 class NotificationServiceTest {
@@ -94,5 +98,31 @@ class NotificationServiceTest {
             .extracting("errorCode")
             .isEqualTo(ErrorCode.NOTIFICATION_NOT_FOUND);
     }
-}
 
+    @Test
+    void listNotificationByNguoiNhanId() {
+        ThongBao item = new ThongBao();
+        item.setId(1L);
+        item.setNguoiNhanId(2L);
+        item.setDaDoc(false);
+        when(thongBaoRepository.findByNguoiNhanId(2L, PageRequest.of(0, 10)))
+            .thenReturn(new PageImpl<>(List.of(item)));
+
+        var response = notificationService.getNotifications(2L, null, 0, 10);
+
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().getFirst().id()).isEqualTo(1L);
+    }
+
+    @Test
+    void sendSuccess() {
+        ThongBao existing = new ThongBao();
+        existing.setId(1L);
+        when(thongBaoRepository.findById(1L)).thenReturn(Optional.of(existing));
+
+        var response = notificationService.send(1L, new NotificationSendRequest(List.of("SYSTEM", "EMAIL")));
+
+        assertThat(response.notificationId()).isEqualTo(1L);
+        assertThat(response.sentChannels()).containsExactly("SYSTEM", "EMAIL");
+    }
+}

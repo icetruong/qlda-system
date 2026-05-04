@@ -72,4 +72,23 @@ public final class XuLyVanBanSpecification {
             return predicates;
         };
     }
+
+    public static Specification<XuLyVanBan> internalFilter(LocalDate fromDate, LocalDate toDate, Integer donViId, Long nguoiXuLyId) {
+        return (root, query, cb) -> {
+            var predicates = cb.conjunction();
+            if (fromDate != null) {
+                predicates = cb.and(predicates, cb.greaterThanOrEqualTo(root.get("ngayNhan"), fromDate.atStartOfDay()));
+            }
+            if (toDate != null) {
+                predicates = cb.and(predicates, cb.lessThanOrEqualTo(root.get("ngayNhan"), toDate.atTime(23, 59, 59)));
+            }
+            if (donViId != null) {
+                predicates = cb.and(predicates, cb.equal(root.get("donViXuLyId"), donViId));
+            }
+            if (nguoiXuLyId != null) {
+                predicates = cb.and(predicates, cb.equal(root.get("nguoiNhanId"), nguoiXuLyId));
+            }
+            return predicates;
+        };
+    }
 }

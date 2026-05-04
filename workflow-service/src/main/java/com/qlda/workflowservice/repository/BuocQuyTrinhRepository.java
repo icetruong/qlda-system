@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Optional;
 
 public interface BuocQuyTrinhRepository extends JpaRepository<BuocQuyTrinh, Long> {
+    Optional<BuocQuyTrinh> findFirstByQuyTrinh_IdOrderByThuTuBuocAsc(Integer quyTrinhId);
+
     List<BuocQuyTrinh> findByQuyTrinh_IdOrderByThuTuBuocAsc(Integer quyTrinhId);
 
     Optional<BuocQuyTrinh> findByIdAndQuyTrinh_Id(Long id, Integer quyTrinhId);
