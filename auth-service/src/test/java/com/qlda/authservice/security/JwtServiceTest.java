@@ -3,6 +3,8 @@ package com.qlda.authservice.security;
 import com.qlda.authservice.config.AuthProperties;
 import com.qlda.authservice.entity.NguoiDung;
 import com.qlda.authservice.entity.NhomQuyen;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -22,6 +24,16 @@ class JwtServiceTest {
         assertFalse(jwtService.isRefreshTokenValid(accessToken));
         assertEquals(1L, jwtService.extractUserId(accessToken));
         assertEquals("admin", jwtService.extractUsername(accessToken));
+        assertEquals("RS256", tokenAlgorithm(accessToken));
+    }
+
+    private String tokenAlgorithm(String token) {
+        String headerSegment = token.split("\\.")[0];
+        String headerJson = new String(Base64.getUrlDecoder().decode(headerSegment), StandardCharsets.UTF_8);
+        if (headerJson.contains("\"alg\":\"RS256\"")) {
+            return "RS256";
+        }
+        return "";
     }
 
     @Test

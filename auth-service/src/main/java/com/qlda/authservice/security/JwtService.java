@@ -5,16 +5,21 @@ import com.qlda.authservice.entity.NguoiDung;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.io.Decoders;
-import io.jsonwebtoken.security.Keys;
-import java.nio.charset.StandardCharsets;
-import java.security.Key;
+import java.security.KeyFactory;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.time.Instant;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import javax.crypto.SecretKey;
+import java.util.Base64;
+import java.util.Locale;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -22,11 +27,14 @@ import org.springframework.util.StringUtils;
 public class JwtService {
 
     private final AuthProperties authProperties;
-    private final SecretKey secretKey;
+    private final PrivateKey privateKey;
+    private final PublicKey publicKey;
 
     public JwtService(AuthProperties authProperties) {
         this.authProperties = authProperties;
-        this.secretKey = buildSecretKey(authProperties.getJwt().getSecret());
+        KeyPair keyPair = buildKeyPair(authProperties.getJwt());
+        this.privateKey = keyPair.getPrivate();
+        this.publicKey = keyPair.getPublic();
     }
 
     public String generateAccessToken(NguoiDung user) {
@@ -86,13 +94,13 @@ public class JwtService {
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusSeconds(expiresInSeconds)))
                 .id(UUID.randomUUID().toString())
-                .signWith(secretKey, Jwts.SIG.HS256)
+                .signWith(privateKey, Jwts.SIG.RS256)
                 .compact();
     }
 
     private Claims parseClaims(String token) {
         return Jwts.parser()
-                .verifyWith(secretKey)
+                .verifyWith(publicKey)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
@@ -102,28 +110,44 @@ public class JwtService {
         Map<String, Object> claims = new HashMap<>();
         claims.put("uid", user.getId());
         claims.put("username", user.getUserName());
-        claims.put("role", user.getNhomQuyen() == null ? "" : user.getNhomQuyen().getMaNhomQuyen());
+        String role = user.getNhomQuyen() == null ? "USER" : user.getNhomQuyen().getMaNhomQuyen();
+        claims.put("roles", List.of(role.toUpperCase(Locale.ROOT)));
+        claims.put("authorities", List.of("ROLE_" + role.toUpperCase(Locale.ROOT)));
         return claims;
     }
 
-    private SecretKey buildSecretKey(String configuredSecret) {
-        String secret = configuredSecret;
-        if (!StringUtils.hasText(secret)) {
-            secret = UUID.randomUUID() + UUID.randomUUID().toString().replace("-", "");
+    private KeyPair buildKeyPair(AuthProperties.Jwt jwt) {
+        try {
+            if (StringUtils.hasText(jwt.getPrivateKey()) && StringUtils.hasText(jwt.getPublicKey())) {
+                return new KeyPair(parsePublicKey(jwt.getPublicKey()), parsePrivateKey(jwt.getPrivateKey()));
+            }
+            KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+            generator.initialize(2048);
+            return generator.generateKeyPair();
+        } catch (Exception exception) {
+            throw new IllegalStateException("Failed to initialize RSA key pair for JWT", exception);
         }
-        byte[] keyBytes = decodeSecret(secret);
-        if (keyBytes.length < 32) {
-            keyBytes = String.format("%-32s", secret).substring(0, 32).getBytes(StandardCharsets.UTF_8);
-        }
-        Key key = Keys.hmacShaKeyFor(keyBytes);
-        return (SecretKey) key;
     }
 
-    private byte[] decodeSecret(String secret) {
-        try {
-            return Decoders.BASE64.decode(secret);
-        } catch (RuntimeException exception) {
-            return secret.getBytes(StandardCharsets.UTF_8);
-        }
+    private PrivateKey parsePrivateKey(String value) throws Exception {
+        byte[] keyBytes = decodeKeyMaterial(value);
+        PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(keyBytes);
+        return KeyFactory.getInstance("RSA").generatePrivate(spec);
+    }
+
+    private PublicKey parsePublicKey(String value) throws Exception {
+        byte[] keyBytes = decodeKeyMaterial(value);
+        X509EncodedKeySpec spec = new X509EncodedKeySpec(keyBytes);
+        return KeyFactory.getInstance("RSA").generatePublic(spec);
+    }
+
+    private byte[] decodeKeyMaterial(String value) {
+        String normalized = value
+                .replace("-----BEGIN PRIVATE KEY-----", "")
+                .replace("-----END PRIVATE KEY-----", "")
+                .replace("-----BEGIN PUBLIC KEY-----", "")
+                .replace("-----END PUBLIC KEY-----", "")
+                .replaceAll("\\s", "");
+        return Base64.getDecoder().decode(normalized);
     }
 }

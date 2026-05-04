@@ -3,6 +3,7 @@ package com.qlda.authservice.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qlda.authservice.common.ApiResponse;
 import com.qlda.authservice.common.ErrorCode;
+import com.qlda.authservice.security.InternalServiceAuthenticationFilter;
 import com.qlda.authservice.security.JwtAuthenticationFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -21,10 +22,16 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final InternalServiceAuthenticationFilter internalServiceAuthenticationFilter;
     private final ObjectMapper objectMapper;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter, ObjectMapper objectMapper) {
+    public SecurityConfig(
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            InternalServiceAuthenticationFilter internalServiceAuthenticationFilter,
+            ObjectMapper objectMapper
+    ) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.internalServiceAuthenticationFilter = internalServiceAuthenticationFilter;
         this.objectMapper = objectMapper;
     }
 
@@ -47,7 +54,8 @@ public class SecurityConfig {
                                 writeError(response, HttpServletResponse.SC_FORBIDDEN,
                                         "Forbidden", ErrorCode.FORBIDDEN))
                 )
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(internalServiceAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(jwtAuthenticationFilter, InternalServiceAuthenticationFilter.class);
         return http.build();
     }
 

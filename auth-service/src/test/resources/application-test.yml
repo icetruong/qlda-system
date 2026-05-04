@@ -29,3 +29,13 @@ auth:
     value: 123456
   backup:
     directory: ./target/test-backups
+
+internal:
+  auth:
+    token: test-internal-token
+    allowed-services:
+      - document-service
+      - workflow-service
+      - report-service
+      - notification-service
+      - support-service

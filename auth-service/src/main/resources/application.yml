@@ -30,6 +30,8 @@ auth:
   jwt:
     issuer: ${AUTH_JWT_ISSUER:auth-service}
     secret: ${AUTH_JWT_SECRET:}
+    private-key: ${AUTH_JWT_PRIVATE_KEY:}
+    public-key: ${AUTH_JWT_PUBLIC_KEY:}
     access-token-seconds: ${AUTH_JWT_ACCESS_SECONDS:3600}
     refresh-token-seconds: ${AUTH_JWT_REFRESH_SECONDS:604800}
   dev-password:
@@ -59,3 +61,13 @@ auth:
     environment: ${SYSTEM_ENVIRONMENT:dev}
     max-upload-file-size: ${SYSTEM_MAX_UPLOAD_FILE_SIZE:20MB}
     backup-enabled: ${SYSTEM_BACKUP_ENABLED:true}
+
+internal:
+  auth:
+    token: ${INTERNAL_SERVICE_TOKEN:}
+    allowed-services:
+      - ${INTERNAL_ALLOWED_SERVICE_1:document-service}
+      - ${INTERNAL_ALLOWED_SERVICE_2:workflow-service}
+      - ${INTERNAL_ALLOWED_SERVICE_3:report-service}
+      - ${INTERNAL_ALLOWED_SERVICE_4:notification-service}
+      - ${INTERNAL_ALLOWED_SERVICE_5:support-service}
