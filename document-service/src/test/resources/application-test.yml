@@ -22,3 +22,14 @@ spring:
 eureka:
   client:
     enabled: false
+
+internal:
+  auth:
+    service-name: document-service
+    service-token: internal-token
+    allowed-services:
+      - workflow-service
+      - ai-service
+      - report-service
+      - support-service
+      - notification-service

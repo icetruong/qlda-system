@@ -33,3 +33,24 @@ eureka:
 
 app:
   upload-dir: ${APP_UPLOAD_DIR:uploads}
+
+services:
+  auth-service:
+    base-url: ${AUTH_SERVICE_URL:http://localhost:8081}
+  workflow-service:
+    base-url: ${WORKFLOW_SERVICE_URL:http://localhost:8083}
+  ai-service:
+    base-url: ${AI_SERVICE_URL:http://localhost:8084}
+  notification-service:
+    base-url: ${NOTIFICATION_SERVICE_URL:http://localhost:8085}
+
+internal:
+  auth:
+    service-name: ${INTERNAL_SERVICE_NAME:document-service}
+    service-token: ${INTERNAL_SERVICE_TOKEN:change-me-in-dev}
+    allowed-services:
+      - workflow-service
+      - ai-service
+      - report-service
+      - support-service
+      - notification-service
