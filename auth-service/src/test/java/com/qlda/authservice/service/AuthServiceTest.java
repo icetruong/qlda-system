@@ -82,7 +82,7 @@ class AuthServiceTest {
         when(azureAuthService.exchangeCodeForUser(any())).thenReturn(null);
 
         ApiException exception = assertThrows(ApiException.class, () ->
-                authService.loginAzure(new AzureLoginRequest("code", "http://localhost/callback"), "127.0.0.1"));
+                authService.loginAzure(new AzureLoginRequest("code", "http://localhost/callback", null), "127.0.0.1"));
 
         assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatus());
         assertEquals(ErrorCode.AZURE_AUTH_FAILED, exception.getErrorCode());
@@ -106,7 +106,7 @@ class AuthServiceTest {
         when(jwtService.getAccessTokenSeconds()).thenReturn(3600L);
 
         AuthTokenResponse response = authService.loginAzure(
-                new AzureLoginRequest("code", "http://localhost/callback"),
+                new AzureLoginRequest("code", "http://localhost/callback", null),
                 "127.0.0.1"
         );
 
