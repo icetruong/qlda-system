@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
 
 public interface NguoiDungRepository extends JpaRepository<NguoiDung, Long>, JpaSpecificationExecutor<NguoiDung> {
 
@@ -25,4 +26,7 @@ public interface NguoiDungRepository extends JpaRepository<NguoiDung, Long>, Jpa
     List<NguoiDung> findByDonVi_Id(Integer donViId);
 
     List<NguoiDung> findByNhomQuyen_Id(Integer nhomQuyenId);
+
+    @Query("select count(u) from NguoiDung u where u.trangThai is null or u.trangThai <> -1")
+    long countSystemUsers();
 }
