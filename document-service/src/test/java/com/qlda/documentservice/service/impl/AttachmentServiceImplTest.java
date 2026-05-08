@@ -6,6 +6,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.qlda.documentservice.client.AiServiceClient;
+import com.qlda.documentservice.client.dto.AiClientDtos;
 import com.qlda.documentservice.dto.response.DocumentResponses;
 import com.qlda.documentservice.entity.TepDinhKem;
 import com.qlda.documentservice.entity.VanBan;
@@ -38,6 +40,8 @@ class AttachmentServiceImplTest {
     private DocumentMapper documentMapper;
     @Mock
     private SecurityUtils securityUtils;
+    @Mock
+    private AiServiceClient aiServiceClient;
 
     @InjectMocks
     private AttachmentServiceImpl service;
@@ -62,6 +66,7 @@ class AttachmentServiceImplTest {
 
         assertThat(response.id()).isEqualTo(11L);
         assertThat(response.documentId()).isEqualTo(1L);
+        verify(aiServiceClient).indexDocument(1L, new AiClientDtos.IndexDocumentRequest("document-service"));
     }
 
     @Test
