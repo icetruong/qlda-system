@@ -8,13 +8,13 @@ import org.springframework.web.client.RestTemplate;
 @Configuration
 public class GeminiConfig {
 
-    @Value("${gemini.api.key}")
+    @Value("${gemini.api.key:}")
     private String apiKey;
 
-    @Value("${gemini.api.model}")
+    @Value("${gemini.api.model:gemini-2.5-flash}")
     private String model;
 
-    @Value("${gemini.api.url}")
+    @Value("${gemini.api.url:https://generativelanguage.googleapis.com/v1beta/models}")
     private String baseUrl;
 
     @Bean
