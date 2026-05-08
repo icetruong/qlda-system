@@ -3,6 +3,8 @@ package com.qlda.workflowservice.service;
 import com.qlda.workflowservice.dto.internal.request.InternalWorkflowStartRequest;
 import com.qlda.workflowservice.dto.internal.request.InternalWorkflowSubmitApprovalRequest;
 import com.qlda.workflowservice.dto.internal.request.InternalWorkflowTransferRequest;
+import com.qlda.workflowservice.dto.internal.response.InternalWorkflowMyDueSoonCountResponse;
+import com.qlda.workflowservice.dto.internal.response.InternalWorkflowMyOverdueCountResponse;
 import com.qlda.workflowservice.dto.internal.response.InternalWorkflowProgressResponse;
 import com.qlda.workflowservice.dto.internal.response.InternalWorkflowStartResponse;
 import com.qlda.workflowservice.dto.internal.response.InternalWorkflowStatisticsResponse;
@@ -31,4 +33,8 @@ public interface InternalWorkflowService {
     InternalWorkflowProgressResponse getProgress(LocalDate fromDate, LocalDate toDate, Integer donViId, Long nguoiXuLyId);
 
     List<SlaViolationResponse> getSlaViolations(LocalDate fromDate, LocalDate toDate, Integer donViId);
+
+    InternalWorkflowMyDueSoonCountResponse getMyDueSoonCount(Long userId, Integer days);
+
+    InternalWorkflowMyOverdueCountResponse getMyOverdueCount(Long userId);
 }

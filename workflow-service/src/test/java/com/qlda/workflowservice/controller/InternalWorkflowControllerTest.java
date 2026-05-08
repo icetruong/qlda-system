@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qlda.workflowservice.dto.internal.request.InternalWorkflowStartRequest;
 import com.qlda.workflowservice.dto.internal.request.InternalWorkflowSubmitApprovalRequest;
 import com.qlda.workflowservice.dto.internal.request.InternalWorkflowTransferRequest;
+import com.qlda.workflowservice.dto.internal.response.InternalWorkflowMyDueSoonCountResponse;
+import com.qlda.workflowservice.dto.internal.response.InternalWorkflowMyOverdueCountResponse;
 import com.qlda.workflowservice.dto.internal.response.InternalWorkflowProgressResponse;
 import com.qlda.workflowservice.dto.internal.response.InternalWorkflowStartResponse;
 import com.qlda.workflowservice.dto.internal.response.InternalWorkflowStatisticsResponse;
@@ -169,5 +171,37 @@ class InternalWorkflowControllerTest {
                         .header("X-Service-Name", "document-service"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].processingId").value(1));
+    }
+
+    @Test
+    void getMyDueSoonCount_success() throws Exception {
+        when(internalWorkflowService.getMyDueSoonCount(2L, 3))
+                .thenReturn(new InternalWorkflowMyDueSoonCountResponse(2L, 3, 5));
+
+        mockMvc.perform(get("/internal/workflows/statistics/my-due-soon-count")
+                        .header("Authorization", "Bearer test-token")
+                        .header("X-Service-Name", "document-service")
+                        .param("userId", "2")
+                        .param("days", "3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Get my due soon document count successfully"))
+                .andExpect(jsonPath("$.data.userId").value(2))
+                .andExpect(jsonPath("$.data.days").value(3))
+                .andExpect(jsonPath("$.data.count").value(5));
+    }
+
+    @Test
+    void getMyOverdueCount_success() throws Exception {
+        when(internalWorkflowService.getMyOverdueCount(2L))
+                .thenReturn(new InternalWorkflowMyOverdueCountResponse(2L, 2));
+
+        mockMvc.perform(get("/internal/workflows/statistics/my-overdue-count")
+                        .header("Authorization", "Bearer test-token")
+                        .header("X-Service-Name", "document-service")
+                        .param("userId", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Get my overdue document count successfully"))
+                .andExpect(jsonPath("$.data.userId").value(2))
+                .andExpect(jsonPath("$.data.count").value(2));
     }
 }

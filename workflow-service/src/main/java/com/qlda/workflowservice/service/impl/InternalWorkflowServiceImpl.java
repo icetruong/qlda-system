@@ -7,6 +7,8 @@ import com.qlda.workflowservice.client.dto.DocumentWorkflowStatusUpdateRequest;
 import com.qlda.workflowservice.dto.internal.request.InternalWorkflowStartRequest;
 import com.qlda.workflowservice.dto.internal.request.InternalWorkflowSubmitApprovalRequest;
 import com.qlda.workflowservice.dto.internal.request.InternalWorkflowTransferRequest;
+import com.qlda.workflowservice.dto.internal.response.InternalWorkflowMyDueSoonCountResponse;
+import com.qlda.workflowservice.dto.internal.response.InternalWorkflowMyOverdueCountResponse;
 import com.qlda.workflowservice.dto.internal.response.InternalWorkflowProgressItemResponse;
 import com.qlda.workflowservice.dto.internal.response.InternalWorkflowProgressResponse;
 import com.qlda.workflowservice.dto.internal.response.InternalWorkflowStartResponse;
@@ -282,12 +284,53 @@ public class InternalWorkflowServiceImpl implements InternalWorkflowService {
                 .toList();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public InternalWorkflowMyDueSoonCountResponse getMyDueSoonCount(Long userId, Integer days) {
+        validateUserId(userId);
+        validateDays(days);
+
+        LocalDateTime now = LocalDateTime.now();
+        long count = xuLyVanBanRepository.countByNguoiNhanIdAndTrangThaiXuLyAndNgayHoanThanhIsNullAndHanXuLyBetween(
+                userId,
+                STATUS_PROCESSING,
+                now,
+                now.plusDays(days)
+        );
+        return new InternalWorkflowMyDueSoonCountResponse(userId, days, count);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public InternalWorkflowMyOverdueCountResponse getMyOverdueCount(Long userId) {
+        validateUserId(userId);
+
+        long count = xuLyVanBanRepository.countByNguoiNhanIdAndTrangThaiXuLyAndNgayHoanThanhIsNullAndHanXuLyBefore(
+                userId,
+                STATUS_PROCESSING,
+                LocalDateTime.now()
+        );
+        return new InternalWorkflowMyOverdueCountResponse(userId, count);
+    }
+
     private BuocQuyTrinh getStepIfExists(Long stepId) {
         if (stepId == null) {
             return null;
         }
         return buocQuyTrinhRepository.findById(stepId)
                 .orElseThrow(() -> new ApiException(ErrorCode.WORKFLOW_STEP_NOT_FOUND, HttpStatus.NOT_FOUND, "Workflow step not found"));
+    }
+
+    private void validateUserId(Long userId) {
+        if (userId == null || userId <= 0) {
+            throw new ApiException(ErrorCode.INVALID_REQUEST, HttpStatus.BAD_REQUEST, "userId must be greater than 0");
+        }
+    }
+
+    private void validateDays(Integer days) {
+        if (days == null || days < 0) {
+            throw new ApiException(ErrorCode.INVALID_REQUEST, HttpStatus.BAD_REQUEST, "days must be greater than or equal to 0");
+        }
     }
 
     private void publishSafely(NotificationEvent event) {

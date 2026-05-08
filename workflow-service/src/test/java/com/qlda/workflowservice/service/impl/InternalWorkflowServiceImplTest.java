@@ -6,6 +6,8 @@ import com.qlda.workflowservice.client.dto.DocumentDetailDto;
 import com.qlda.workflowservice.dto.internal.request.InternalWorkflowStartRequest;
 import com.qlda.workflowservice.dto.internal.request.InternalWorkflowSubmitApprovalRequest;
 import com.qlda.workflowservice.dto.internal.request.InternalWorkflowTransferRequest;
+import com.qlda.workflowservice.dto.internal.response.InternalWorkflowMyDueSoonCountResponse;
+import com.qlda.workflowservice.dto.internal.response.InternalWorkflowMyOverdueCountResponse;
 import com.qlda.workflowservice.dto.internal.response.InternalWorkflowProgressResponse;
 import com.qlda.workflowservice.dto.internal.response.InternalWorkflowStartResponse;
 import com.qlda.workflowservice.dto.internal.response.InternalWorkflowStatisticsResponse;
@@ -40,9 +42,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -219,5 +224,42 @@ class InternalWorkflowServiceImplTest {
                 new InternalWorkflowTransferRequest(100L, 200L, 1, 11L, "Y", LocalDateTime.now().plusDays(1))));
 
         assertEquals(ErrorCode.USER_NOT_FOUND, exception.getErrorCode());
+    }
+
+    @Test
+    void getMyDueSoonCount_success() {
+        when(xuLyVanBanRepository.countByNguoiNhanIdAndTrangThaiXuLyAndNgayHoanThanhIsNullAndHanXuLyBetween(
+                anyLong(), anyInt(), any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(5L);
+
+        InternalWorkflowMyDueSoonCountResponse response = internalWorkflowService.getMyDueSoonCount(2L, 3);
+
+        assertEquals(2L, response.userId());
+        assertEquals(3, response.days());
+        assertEquals(5L, response.count());
+        verify(xuLyVanBanRepository).countByNguoiNhanIdAndTrangThaiXuLyAndNgayHoanThanhIsNullAndHanXuLyBetween(
+                eq(2L), eq(1), any(LocalDateTime.class), any(LocalDateTime.class));
+    }
+
+    @Test
+    void getMyOverdueCount_success() {
+        when(xuLyVanBanRepository.countByNguoiNhanIdAndTrangThaiXuLyAndNgayHoanThanhIsNullAndHanXuLyBefore(
+                anyLong(), anyInt(), any(LocalDateTime.class)))
+                .thenReturn(2L);
+
+        InternalWorkflowMyOverdueCountResponse response = internalWorkflowService.getMyOverdueCount(2L);
+
+        assertEquals(2L, response.userId());
+        assertEquals(2L, response.count());
+        verify(xuLyVanBanRepository).countByNguoiNhanIdAndTrangThaiXuLyAndNgayHoanThanhIsNullAndHanXuLyBefore(
+                eq(2L), eq(1), any(LocalDateTime.class));
+    }
+
+    @Test
+    void getMyDueSoonCount_invalidDays_shouldThrow() {
+        ApiException exception = assertThrows(ApiException.class, () -> internalWorkflowService.getMyDueSoonCount(2L, -1));
+
+        assertEquals(ErrorCode.INVALID_REQUEST, exception.getErrorCode());
+        verifyNoMoreInteractions(xuLyVanBanRepository);
     }
 }

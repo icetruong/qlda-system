@@ -4,6 +4,8 @@ import com.qlda.workflowservice.common.ApiResponse;
 import com.qlda.workflowservice.dto.internal.request.InternalWorkflowStartRequest;
 import com.qlda.workflowservice.dto.internal.request.InternalWorkflowSubmitApprovalRequest;
 import com.qlda.workflowservice.dto.internal.request.InternalWorkflowTransferRequest;
+import com.qlda.workflowservice.dto.internal.response.InternalWorkflowMyDueSoonCountResponse;
+import com.qlda.workflowservice.dto.internal.response.InternalWorkflowMyOverdueCountResponse;
 import com.qlda.workflowservice.dto.internal.response.InternalWorkflowProgressResponse;
 import com.qlda.workflowservice.dto.internal.response.InternalWorkflowStartResponse;
 import com.qlda.workflowservice.dto.internal.response.InternalWorkflowStatisticsResponse;
@@ -87,5 +89,18 @@ public class InternalWorkflowController {
             @RequestParam(required = false) Integer donViId
     ) {
         return ApiResponse.ok("Get internal SLA violations successfully", internalWorkflowService.getSlaViolations(fromDate, toDate, donViId));
+    }
+
+    @GetMapping("/statistics/my-due-soon-count")
+    public ApiResponse<InternalWorkflowMyDueSoonCountResponse> getMyDueSoonCount(
+            @RequestParam Long userId,
+            @RequestParam Integer days
+    ) {
+        return ApiResponse.ok("Get my due soon document count successfully", internalWorkflowService.getMyDueSoonCount(userId, days));
+    }
+
+    @GetMapping("/statistics/my-overdue-count")
+    public ApiResponse<InternalWorkflowMyOverdueCountResponse> getMyOverdueCount(@RequestParam Long userId) {
+        return ApiResponse.ok("Get my overdue document count successfully", internalWorkflowService.getMyOverdueCount(userId));
     }
 }

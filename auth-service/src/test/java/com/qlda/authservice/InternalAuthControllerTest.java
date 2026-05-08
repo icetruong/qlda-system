@@ -174,6 +174,17 @@ class InternalAuthControllerTest {
     }
 
     @Test
+    void getUserCountShouldReturnSuccess() throws Exception {
+        mockMvc.perform(get("/internal/auth/statistics/users/count")
+                        .header("Authorization", "Bearer test-internal-token")
+                        .header("X-Service-Name", "document-service"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Get user count successfully"))
+                .andExpect(jsonPath("$.data.count").value(1));
+    }
+
+    @Test
     void checkPermissionShouldReturnAllowedTrue() throws Exception {
         String payload = objectMapper.writeValueAsString(Map.of(
                 "userId", userId,
