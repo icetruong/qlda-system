@@ -7,6 +7,7 @@ import com.qlda.authservice.dto.internal.request.ValidateUsersRequest;
 import com.qlda.authservice.dto.internal.response.InternalPermissionCheckResponse;
 import com.qlda.authservice.dto.internal.response.InternalPermissionResponse;
 import com.qlda.authservice.dto.internal.response.InternalUnitResponse;
+import com.qlda.authservice.dto.internal.response.InternalUserCountResponse;
 import com.qlda.authservice.dto.internal.response.InternalUserResponse;
 import com.qlda.authservice.dto.internal.response.InternalUserRolesResponse;
 import com.qlda.authservice.dto.internal.response.ValidateUnitsResponse;
@@ -128,6 +129,10 @@ public class InternalAuthService {
                 request.maChucNang(),
                 request.permission()
         );
+    }
+
+    public InternalUserCountResponse getUserCount() {
+        return new InternalUserCountResponse(nguoiDungRepository.countSystemUsers());
     }
 
     private NguoiDung findActiveUserById(Long id) {

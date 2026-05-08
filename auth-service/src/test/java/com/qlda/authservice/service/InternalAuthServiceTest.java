@@ -6,6 +6,7 @@ import com.qlda.authservice.dto.internal.request.ValidateUnitsRequest;
 import com.qlda.authservice.dto.internal.request.ValidateUsersRequest;
 import com.qlda.authservice.dto.internal.response.InternalPermissionCheckResponse;
 import com.qlda.authservice.dto.internal.response.InternalUnitResponse;
+import com.qlda.authservice.dto.internal.response.InternalUserCountResponse;
 import com.qlda.authservice.dto.internal.response.InternalUserResponse;
 import com.qlda.authservice.dto.internal.response.InternalUserRolesResponse;
 import com.qlda.authservice.dto.internal.response.ValidateUnitsResponse;
@@ -156,6 +157,15 @@ class InternalAuthServiceTest {
     void checkPermissionShouldSupportIsApprove() {
         InternalPermissionCheckResponse response = doPermissionCheck("IsApprove", false, false, false, false, true);
         assertTrue(response.allowed());
+    }
+
+    @Test
+    void getUserCountShouldReturnRepositoryCount() {
+        when(nguoiDungRepository.countSystemUsers()).thenReturn(120L);
+
+        InternalUserCountResponse response = internalAuthService.getUserCount();
+
+        assertEquals(120L, response.count());
     }
 
     private InternalPermissionCheckResponse doPermissionCheck(

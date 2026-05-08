@@ -155,7 +155,22 @@ Response:
 "allowed": true,
 "userId": 1,
 "maChucNang": "DOCUMENT_INCOMING",
-"permission": "IsEdit"
+ "permission": "IsEdit"
+ }
+ }
+
+7.2.7. Thong ke tong so nguoi dung
+GET /internal/auth/statistics/users/count
+Response:
+{
+"success": true,
+"message": "Get user count successfully",
+"data": {
+"count": 120
 }
 }
+
+Goi y cho AI-service:
+- Truoc khi tra loi metric admin, goi POST /internal/auth/permissions/check de xac thuc quyen.
+- Chi cho phep tra loi metric khi data.allowed = true.
 

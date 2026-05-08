@@ -5,6 +5,10 @@ import com.qlda.authservice.entity.NguoiDung;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -20,6 +24,7 @@ import java.util.Base64;
 import java.util.Locale;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -142,12 +147,36 @@ public class JwtService {
     }
 
     private byte[] decodeKeyMaterial(String value) {
-        String normalized = value
+        String material = resolveKeySource(value);
+        String normalized = material
                 .replace("-----BEGIN PRIVATE KEY-----", "")
                 .replace("-----END PRIVATE KEY-----", "")
                 .replace("-----BEGIN PUBLIC KEY-----", "")
                 .replace("-----END PUBLIC KEY-----", "")
                 .replaceAll("\\s", "");
         return Base64.getDecoder().decode(normalized);
+    }
+
+    private String resolveKeySource(String value) {
+        String trimmed = value == null ? "" : value.trim();
+        if (trimmed.startsWith("classpath:")) {
+            String classpathLocation = trimmed.substring("classpath:".length()).replaceFirst("^/+", "");
+            try {
+                ClassPathResource resource = new ClassPathResource(classpathLocation);
+                return new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            } catch (IOException exception) {
+                throw new IllegalArgumentException("Cannot read classpath key material: " + trimmed, exception);
+            }
+        }
+
+        Path path = Path.of(trimmed);
+        if (Files.exists(path)) {
+            try {
+                return Files.readString(path, StandardCharsets.UTF_8);
+            } catch (IOException exception) {
+                throw new IllegalArgumentException("Cannot read key material file: " + trimmed, exception);
+            }
+        }
+        return trimmed;
     }
 }

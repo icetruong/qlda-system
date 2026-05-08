@@ -6,6 +6,7 @@ import com.qlda.authservice.dto.internal.request.ValidateUnitsRequest;
 import com.qlda.authservice.dto.internal.request.ValidateUsersRequest;
 import com.qlda.authservice.dto.internal.response.InternalPermissionCheckResponse;
 import com.qlda.authservice.dto.internal.response.InternalUnitResponse;
+import com.qlda.authservice.dto.internal.response.InternalUserCountResponse;
 import com.qlda.authservice.dto.internal.response.InternalUserResponse;
 import com.qlda.authservice.dto.internal.response.InternalUserRolesResponse;
 import com.qlda.authservice.dto.internal.response.ValidateUnitsResponse;
@@ -52,6 +53,11 @@ public class InternalAuthController {
     @GetMapping("/users/{id}/roles")
     public ApiResponse<InternalUserRolesResponse> getUserRoles(@PathVariable Long id) {
         return ApiResponse.success("Get user roles successfully", internalAuthService.getUserRoles(id));
+    }
+
+    @GetMapping("/statistics/users/count")
+    public ApiResponse<InternalUserCountResponse> getUserCount() {
+        return ApiResponse.success("Get user count successfully", internalAuthService.getUserCount());
     }
 
     @PostMapping("/permissions/check")

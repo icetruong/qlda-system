@@ -64,6 +64,23 @@ class JwtServiceTest {
         assertFalse(jwtService.isRefreshTokenValid("not-a-jwt-token"));
     }
 
+    @Test
+    void jwtServiceShouldSupportClasspathPemKeys() {
+        AuthProperties authProperties = new AuthProperties();
+        authProperties.getJwt().setIssuer("auth-service-test");
+        authProperties.getJwt().setPrivateKey("classpath:private.pem");
+        authProperties.getJwt().setPublicKey("classpath:public.pem");
+        authProperties.getJwt().setAccessTokenSeconds(3600);
+        authProperties.getJwt().setRefreshTokenSeconds(7200);
+        JwtService jwtService = new JwtService(authProperties);
+
+        NguoiDung user = buildUser();
+        String accessToken = jwtService.generateAccessToken(user);
+
+        assertTrue(jwtService.isAccessTokenValid(accessToken));
+        assertEquals(1L, jwtService.extractUserId(accessToken));
+    }
+
     private JwtService buildJwtService(String secret, long accessSeconds, long refreshSeconds) {
         AuthProperties authProperties = new AuthProperties();
         authProperties.getJwt().setIssuer("auth-service-test");
