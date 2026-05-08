@@ -90,6 +90,7 @@ class DocumentWorkflowServiceImplTest {
         assertThat(response.id()).isEqualTo(100L);
         verify(authServiceClient).getUnitById(5);
         verify(workflowServiceClient).startWorkflow(eq(100L), any(WorkflowClientDtos.StartWorkflowRequest.class));
+        verify(aiServiceClient).indexDocument(100L, new AiClientDtos.IndexDocumentRequest("document-service"));
         verify(vanBanRepository, atLeastOnce()).save(any(VanBan.class));
     }
 
@@ -150,6 +151,7 @@ class DocumentWorkflowServiceImplTest {
         assertThat(response.id()).isEqualTo(102L);
         verify(authServiceClient).getUnitById(8);
         verify(workflowServiceClient).startWorkflow(eq(102L), any(WorkflowClientDtos.StartWorkflowRequest.class));
+        verify(aiServiceClient).indexDocument(102L, new AiClientDtos.IndexDocumentRequest("document-service"));
     }
 
     @Test
@@ -250,7 +252,82 @@ class DocumentWorkflowServiceImplTest {
         assertThat(response.ocrText()).isEqualTo("ket qua ocr");
         assertThat(vanBan.getDaOCR()).isTrue();
         verify(aiServiceClient).ocr(any(AiClientDtos.OcrRequest.class));
+        verify(aiServiceClient).indexDocument(400L, new AiClientDtos.IndexDocumentRequest("document-service"));
         verify(vanBanRepository).save(vanBan);
+    }
+
+    @Test
+    void updateIncoming_shouldRequestIndexAfterUpdate() {
+        VanBan vanBan = existingDocument(710L);
+        LoaiVanBan type = createLoaiVanBan(1);
+        when(vanBanRepository.findByIdAndDaXoaFalse(710L)).thenReturn(Optional.of(vanBan));
+        when(loaiVanBanRepository.findById(1)).thenReturn(Optional.of(type));
+        when(vanBanRepository.save(any(VanBan.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(documentMapper.toDocumentSimpleResponse(any(VanBan.class)))
+            .thenReturn(new DocumentResponses.DocumentSimpleResponse(710L, "01/CV/2026", "Trich yeu", 1, 1, null, null));
+
+        DocumentResponses.DocumentSimpleResponse response = service.updateIncoming(710L, incomingRequest());
+
+        assertThat(response.id()).isEqualTo(710L);
+        verify(aiServiceClient).indexDocument(710L, new AiClientDtos.IndexDocumentRequest("document-service"));
+    }
+
+    @Test
+    void createDraft_shouldRequestIndexAfterCreate() {
+        LoaiVanBan type = createLoaiVanBan(1);
+        when(loaiVanBanRepository.findById(1)).thenReturn(Optional.of(type));
+        when(securityUtils.getCurrentUserId()).thenReturn(Optional.of(12L));
+        when(vanBanRepository.save(any(VanBan.class))).thenAnswer(invocation -> {
+            VanBan entity = invocation.getArgument(0);
+            if (entity.getId() == null) {
+                entity.setId(720L);
+            }
+            return entity;
+        });
+        when(documentMapper.toDocumentSimpleResponse(any(VanBan.class)))
+            .thenReturn(new DocumentResponses.DocumentSimpleResponse(720L, null, "draft", 1, DocumentConstants.PHAN_LOAI_VAN_BAN_NHAP, null, null));
+
+        DocumentResponses.DocumentSimpleResponse response = service.createDraft(
+            new DocumentRequests.DraftDocumentRequest("draft", 1, 5, "noi dung")
+        );
+
+        assertThat(response.id()).isEqualTo(720L);
+        verify(aiServiceClient).indexDocument(720L, new AiClientDtos.IndexDocumentRequest("document-service"));
+    }
+
+    @Test
+    void updateDraft_shouldRequestIndexAfterUpdate() {
+        VanBan vanBan = existingDocument(730L);
+        LoaiVanBan type = createLoaiVanBan(1);
+        when(vanBanRepository.findByIdAndDaXoaFalse(730L)).thenReturn(Optional.of(vanBan));
+        when(loaiVanBanRepository.findById(1)).thenReturn(Optional.of(type));
+        when(vanBanRepository.save(any(VanBan.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(documentMapper.toDocumentSimpleResponse(any(VanBan.class)))
+            .thenReturn(new DocumentResponses.DocumentSimpleResponse(730L, null, "draft-updated", 1, DocumentConstants.PHAN_LOAI_VAN_BAN_NHAP, null, null));
+
+        DocumentResponses.DocumentSimpleResponse response = service.updateDraft(
+            730L,
+            new DocumentRequests.DraftDocumentRequest("draft-updated", 1, 5, "noi dung moi")
+        );
+
+        assertThat(response.id()).isEqualTo(730L);
+        verify(aiServiceClient).indexDocument(730L, new AiClientDtos.IndexDocumentRequest("document-service"));
+    }
+
+    @Test
+    void updateOutgoing_shouldRequestIndexAfterUpdate() {
+        VanBan vanBan = existingDocument(740L);
+        LoaiVanBan type = createLoaiVanBan(3);
+        when(vanBanRepository.findByIdAndDaXoaFalse(740L)).thenReturn(Optional.of(vanBan));
+        when(loaiVanBanRepository.findById(3)).thenReturn(Optional.of(type));
+        when(vanBanRepository.save(any(VanBan.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(documentMapper.toDocumentSimpleResponse(any(VanBan.class)))
+            .thenReturn(new DocumentResponses.DocumentSimpleResponse(740L, "02/OUT/2026", "Out", 3, 2, null, null));
+
+        DocumentResponses.DocumentSimpleResponse response = service.updateOutgoing(740L, outgoingRequest());
+
+        assertThat(response.id()).isEqualTo(740L);
+        verify(aiServiceClient).indexDocument(740L, new AiClientDtos.IndexDocumentRequest("document-service"));
     }
 
     @Test

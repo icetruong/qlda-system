@@ -60,4 +60,27 @@ class AiServiceClientTest {
         assertThat(response.documentId()).isEqualTo(12L);
         assertThat(response.summary()).isEqualTo("Tom tat");
     }
+
+    @Test
+    void indexDocument_shouldSendPathBodyAndInternalHeaders() throws Exception {
+        mockWebServer.enqueue(new MockResponse()
+            .setHeader("Content-Type", "application/json")
+            .setBody("""
+                {"success":true,"message":"Index document successfully","data":{"documentId":1,"indexed":true,"totalChunks":8}}
+                """));
+
+        AiClientDtos.IndexDocumentResponse response = aiServiceClient.indexDocument(
+            1L,
+            new AiClientDtos.IndexDocumentRequest("document-service")
+        );
+
+        RecordedRequest request = mockWebServer.takeRequest();
+        assertThat(request.getPath()).isEqualTo("/internal/ai/index-document/1");
+        assertThat(request.getHeader("Authorization")).isEqualTo("Bearer internal-token");
+        assertThat(request.getHeader("X-Service-Name")).isEqualTo("document-service");
+        assertThat(request.getBody().readUtf8()).contains("\"triggeredBy\":\"document-service\"");
+        assertThat(response.success()).isTrue();
+        assertThat(response.data().documentId()).isEqualTo(1L);
+        assertThat(response.data().indexed()).isTrue();
+    }
 }

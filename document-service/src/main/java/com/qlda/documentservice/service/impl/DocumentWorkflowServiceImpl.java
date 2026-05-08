@@ -119,6 +119,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             List.of("SYSTEM"),
             metadata
         );
+        requestIndexDocument(saved.getId(), "create incoming");
         return documentMapper.toDocumentSimpleResponse(saved);
     }
 
@@ -130,7 +131,9 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             request.nguoiKy(), request.ngayVanBan(), request.ngayTiepNhan(), request.doMat(), request.doKhan(), request.donViChuTriId(),
             request.hanXuLy(), request.trangThai());
         vanBan.setNgayCapNhat(LocalDateTime.now());
-        return documentMapper.toDocumentSimpleResponse(vanBanRepository.save(vanBan));
+        VanBan saved = vanBanRepository.save(vanBan);
+        requestIndexDocument(saved.getId(), "update incoming");
+        return documentMapper.toDocumentSimpleResponse(saved);
     }
 
     @Override
@@ -209,6 +212,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         VanBan vanBan = getDocumentOrThrow(id);
         String fileUrl = fileStorageService.store(file);
         ocrFileStore.put(vanBan.getId(), fileUrl);
+        requestIndexDocument(vanBan.getId(), "upload ocr file");
         return new DocumentResponses.OcrUploadResponse(vanBan.getId(), file.getOriginalFilename(), fileUrl);
     }
 
@@ -224,6 +228,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             vanBan.setDaOCR(true);
             vanBan.setNgayCapNhat(LocalDateTime.now());
             vanBanRepository.save(vanBan);
+            requestIndexDocument(id, "process ocr");
             return new DocumentResponses.OcrProcessResponse(
                 id,
                 response == null ? null : response.ocrText(),
@@ -242,6 +247,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         vanBan.setDaOCR(true);
         vanBan.setNgayCapNhat(LocalDateTime.now());
         vanBanRepository.save(vanBan);
+        requestIndexDocument(id, "save ocr");
         // TODO: Current schema has no column/table to persist OCR text and confidence.
         return new DocumentResponses.OcrSaveResponse(id, true);
     }
@@ -260,7 +266,9 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         vanBan.setDaKySo(false);
         vanBan.setNgayTao(LocalDateTime.now());
         securityUtils.getCurrentUserId().ifPresent(vanBan::setNguoiTaoId);
-        return documentMapper.toDocumentSimpleResponse(vanBanRepository.save(vanBan));
+        VanBan saved = vanBanRepository.save(vanBan);
+        requestIndexDocument(saved.getId(), "create draft");
+        return documentMapper.toDocumentSimpleResponse(saved);
     }
 
     @Override
@@ -271,7 +279,9 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         vanBan.setLoaiVanBan(findLoaiVanBan(request.loaiVanBanId()));
         vanBan.setDonViChuTriId(request.donViChuTriId());
         vanBan.setNgayCapNhat(LocalDateTime.now());
-        return documentMapper.toDocumentSimpleResponse(vanBanRepository.save(vanBan));
+        VanBan saved = vanBanRepository.save(vanBan);
+        requestIndexDocument(saved.getId(), "update draft");
+        return documentMapper.toDocumentSimpleResponse(saved);
     }
 
     @Override
@@ -402,6 +412,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             List.of("SYSTEM"),
             metadata
         );
+        requestIndexDocument(saved.getId(), "create outgoing");
         return documentMapper.toDocumentSimpleResponse(saved);
     }
 
@@ -412,7 +423,9 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         applyIncomingOutgoingFields(vanBan, request.soKyHieu(), request.trichYeu(), request.loaiVanBanId(), null, request.nguoiKy(),
             request.ngayVanBan(), null, request.doMat(), request.doKhan(), request.donViChuTriId(), null, request.trangThai());
         vanBan.setNgayCapNhat(LocalDateTime.now());
-        return documentMapper.toDocumentSimpleResponse(vanBanRepository.save(vanBan));
+        VanBan saved = vanBanRepository.save(vanBan);
+        requestIndexDocument(saved.getId(), "update outgoing");
+        return documentMapper.toDocumentSimpleResponse(saved);
     }
 
     @Override
@@ -771,6 +784,14 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             notificationEventPublisher.publish(event);
         } catch (Exception ex) {
             log.warn("Publish notification event failed: eventType={} documentId={}", eventType, vanBan.getId(), ex);
+        }
+    }
+
+    private void requestIndexDocument(Long documentId, String operation) {
+        try {
+            aiServiceClient.indexDocument(documentId, new AiClientDtos.IndexDocumentRequest(SOURCE_SERVICE));
+        } catch (Exception ex) {
+            log.warn("Index document failed after {}: documentId={}", operation, documentId, ex);
         }
     }
 

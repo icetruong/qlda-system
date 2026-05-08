@@ -117,6 +117,39 @@ class InternalDocumentServiceImplTest {
     }
 
     @Test
+    void checkAccess_shouldReturnAllowedDocumentIds() {
+        VanBan allowed1 = createDocument(1L);
+        VanBan allowed2 = createDocument(3L);
+        when(vanBanRepository.findByIdInAndDaXoaFalseAndNguoiTaoId(List.of(1L, 2L, 3L, 4L, 5L), 2L))
+            .thenReturn(List.of(allowed1, allowed2));
+
+        InternalDocumentResponses.AccessCheckResponse response = service.checkDocumentAccess(
+            new InternalDocumentRequests.AccessCheckRequest(2L, List.of(1L, 2L, 3L, 4L, 5L))
+        );
+
+        assertThat(response.allowedDocumentIds()).containsExactly(1L, 3L);
+    }
+
+    @Test
+    void getMyUploadedCount_shouldReturnCount() {
+        when(vanBanRepository.countByDaXoaFalseAndNguoiTaoId(2L)).thenReturn(12L);
+
+        InternalDocumentResponses.MyUploadedDocumentCountResponse response = service.getMyUploadedDocumentCount(2L);
+
+        assertThat(response.userId()).isEqualTo(2L);
+        assertThat(response.count()).isEqualTo(12L);
+    }
+
+    @Test
+    void getTotalCount_shouldReturnCount() {
+        when(vanBanRepository.countByDaXoaFalse()).thenReturn(250L);
+
+        InternalDocumentResponses.TotalDocumentCountResponse response = service.getTotalDocumentCount();
+
+        assertThat(response.count()).isEqualTo(250L);
+    }
+
+    @Test
     void statistics_shouldReturnSuccess() {
         VanBan incoming = createDocument(6L);
         incoming.setPhanLoaiVanBan(DocumentConstants.PHAN_LOAI_VAN_BAN_DEN);

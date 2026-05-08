@@ -14,8 +14,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -122,6 +125,43 @@ public class InternalDocumentServiceImpl implements InternalDocumentService {
         vanBanRepository.save(vanBan);
         // TODO: Current schema has no OCR text/confidence columns.
         return new InternalDocumentResponses.UpdateOcrStatusResponse(vanBan.getId(), vanBan.getDaOCR());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public InternalDocumentResponses.AccessCheckResponse checkDocumentAccess(InternalDocumentRequests.AccessCheckRequest request) {
+        List<Long> requestedDocumentIds = request.documentIds().stream()
+            .filter(Objects::nonNull)
+            .toList();
+        if (requestedDocumentIds.isEmpty()) {
+            return new InternalDocumentResponses.AccessCheckResponse(List.of());
+        }
+
+        Set<Long> existingAccessibleIds = new HashSet<>(
+            vanBanRepository.findByIdInAndDaXoaFalseAndNguoiTaoId(requestedDocumentIds, request.userId()).stream()
+                .map(VanBan::getId)
+                .toList()
+        );
+
+        List<Long> allowedDocumentIds = requestedDocumentIds.stream()
+            .filter(existingAccessibleIds::contains)
+            .distinct()
+            .toList();
+        return new InternalDocumentResponses.AccessCheckResponse(allowedDocumentIds);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public InternalDocumentResponses.MyUploadedDocumentCountResponse getMyUploadedDocumentCount(Long userId) {
+        long count = vanBanRepository.countByDaXoaFalseAndNguoiTaoId(userId);
+        return new InternalDocumentResponses.MyUploadedDocumentCountResponse(userId, count);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public InternalDocumentResponses.TotalDocumentCountResponse getTotalDocumentCount() {
+        long count = vanBanRepository.countByDaXoaFalse();
+        return new InternalDocumentResponses.TotalDocumentCountResponse(count);
     }
 
     @Override

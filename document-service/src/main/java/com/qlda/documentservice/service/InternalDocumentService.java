@@ -20,6 +20,12 @@ public interface InternalDocumentService {
 
     InternalDocumentResponses.UpdateOcrStatusResponse updateOcrStatus(Long id, InternalDocumentRequests.UpdateOcrStatusRequest request);
 
+    InternalDocumentResponses.AccessCheckResponse checkDocumentAccess(InternalDocumentRequests.AccessCheckRequest request);
+
+    InternalDocumentResponses.MyUploadedDocumentCountResponse getMyUploadedDocumentCount(Long userId);
+
+    InternalDocumentResponses.TotalDocumentCountResponse getTotalDocumentCount();
+
     InternalDocumentResponses.InternalDocumentStatisticsResponse getStatistics(
         LocalDate fromDate,
         LocalDate toDate,

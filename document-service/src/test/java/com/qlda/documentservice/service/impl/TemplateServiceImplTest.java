@@ -6,6 +6,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.qlda.documentservice.client.AiServiceClient;
+import com.qlda.documentservice.client.dto.AiClientDtos;
 import com.qlda.documentservice.common.DocumentConstants;
 import com.qlda.documentservice.common.PageResponse;
 import com.qlda.documentservice.dto.request.DocumentRequests;
@@ -45,6 +47,8 @@ class TemplateServiceImplTest {
     private DocumentMapper documentMapper;
     @Mock
     private SecurityUtils securityUtils;
+    @Mock
+    private AiServiceClient aiServiceClient;
 
     @InjectMocks
     private TemplateServiceImpl service;
@@ -161,6 +165,7 @@ class TemplateServiceImplTest {
         ArgumentCaptor<VanBan> captor = ArgumentCaptor.forClass(VanBan.class);
         verify(vanBanRepository).save(captor.capture());
         assertThat(captor.getValue().getPhanLoaiVanBan()).isEqualTo(DocumentConstants.PHAN_LOAI_VAN_BAN_NHAP);
+        verify(aiServiceClient).indexDocument(999L, new AiClientDtos.IndexDocumentRequest("document-service"));
     }
 
     @Test

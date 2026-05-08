@@ -16,5 +16,10 @@ public interface VanBanRepository extends JpaRepository<VanBan, Long>, JpaSpecif
     Page<VanBan> findByPhanLoaiVanBanAndDaXoaFalse(Integer phanLoaiVanBan, Pageable pageable);
 
     List<VanBan> findBySoKyHieuAndDaXoaFalse(String soKyHieu);
-}
 
+    List<VanBan> findByIdInAndDaXoaFalseAndNguoiTaoId(List<Long> ids, Long nguoiTaoId);
+
+    long countByDaXoaFalse();
+
+    long countByDaXoaFalseAndNguoiTaoId(Long nguoiTaoId);
+}

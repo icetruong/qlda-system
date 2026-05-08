@@ -39,4 +39,13 @@ public final class AiClientDtos {
 
     public record SuggestionResponse(Long documentId, List<SuggestionItem> suggestions, Double confidence) {
     }
+
+    public record IndexDocumentRequest(String triggeredBy) {
+    }
+
+    public record IndexDocumentData(Long documentId, Boolean indexed, Integer totalChunks) {
+    }
+
+    public record IndexDocumentResponse(Boolean success, String message, IndexDocumentData data) {
+    }
 }

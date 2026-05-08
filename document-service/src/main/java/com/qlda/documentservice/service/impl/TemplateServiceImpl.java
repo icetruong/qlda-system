@@ -1,5 +1,7 @@
 package com.qlda.documentservice.service.impl;
 
+import com.qlda.documentservice.client.AiServiceClient;
+import com.qlda.documentservice.client.dto.AiClientDtos;
 import com.qlda.documentservice.common.DocumentConstants;
 import com.qlda.documentservice.common.PageResponse;
 import com.qlda.documentservice.dto.request.DocumentRequests;
@@ -18,6 +20,8 @@ import com.qlda.documentservice.service.TemplateService;
 import com.qlda.documentservice.specification.TemplateVanBanSpecification;
 import java.time.LocalDateTime;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -26,24 +30,30 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class TemplateServiceImpl implements TemplateService {
+    private static final Logger log = LoggerFactory.getLogger(TemplateServiceImpl.class);
+    private static final String SOURCE_SERVICE = "document-service";
+
     private final TemplateVanBanRepository templateVanBanRepository;
     private final LoaiVanBanRepository loaiVanBanRepository;
     private final VanBanRepository vanBanRepository;
     private final DocumentMapper documentMapper;
     private final SecurityUtils securityUtils;
+    private final AiServiceClient aiServiceClient;
 
     public TemplateServiceImpl(
         TemplateVanBanRepository templateVanBanRepository,
         LoaiVanBanRepository loaiVanBanRepository,
         VanBanRepository vanBanRepository,
         DocumentMapper documentMapper,
-        SecurityUtils securityUtils
+        SecurityUtils securityUtils,
+        AiServiceClient aiServiceClient
     ) {
         this.templateVanBanRepository = templateVanBanRepository;
         this.loaiVanBanRepository = loaiVanBanRepository;
         this.vanBanRepository = vanBanRepository;
         this.documentMapper = documentMapper;
         this.securityUtils = securityUtils;
+        this.aiServiceClient = aiServiceClient;
     }
 
     @Override
@@ -134,6 +144,7 @@ public class TemplateServiceImpl implements TemplateService {
         vanBan.setNgayTao(LocalDateTime.now());
         securityUtils.getCurrentUserId().ifPresent(vanBan::setNguoiTaoId);
         vanBan = vanBanRepository.save(vanBan);
+        requestIndexDocument(vanBan.getId());
 
         // TODO: Current implementation stores applied content in-memory only. Add docx/file generation when template engine is available.
         replacePlaceholder(templateVanBan.getNoiDungMau(), request.replaceData());
@@ -169,5 +180,12 @@ public class TemplateServiceImpl implements TemplateService {
         return loaiVanBanRepository.findById(id)
             .orElseThrow(() -> BusinessException.notFound(ErrorCode.DOCUMENT_TYPE_NOT_FOUND, "Document type not found"));
     }
-}
 
+    private void requestIndexDocument(Long documentId) {
+        try {
+            aiServiceClient.indexDocument(documentId, new AiClientDtos.IndexDocumentRequest(SOURCE_SERVICE));
+        } catch (Exception ex) {
+            log.warn("Index document failed after create from template: documentId={}", documentId, ex);
+        }
+    }
+}

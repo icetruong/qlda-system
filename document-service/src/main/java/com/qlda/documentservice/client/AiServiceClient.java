@@ -2,6 +2,7 @@ package com.qlda.documentservice.client;
 
 import com.qlda.documentservice.client.dto.AiClientDtos;
 import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
@@ -22,4 +23,10 @@ public interface AiServiceClient {
 
     @PostMapping("/internal/ai/suggestions")
     AiClientDtos.SuggestionResponse suggestions(@RequestBody AiClientDtos.SuggestionRequest request);
+
+    @PostMapping("/internal/ai/index-document/{documentId}")
+    AiClientDtos.IndexDocumentResponse indexDocument(
+        @PathVariable("documentId") Long documentId,
+        @RequestBody AiClientDtos.IndexDocumentRequest request
+    );
 }

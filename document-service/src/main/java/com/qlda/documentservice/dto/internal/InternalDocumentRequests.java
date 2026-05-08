@@ -2,6 +2,7 @@ package com.qlda.documentservice.dto.internal;
 
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public final class InternalDocumentRequests {
     private InternalDocumentRequests() {
@@ -30,6 +31,12 @@ public final class InternalDocumentRequests {
 
     public record UpdateOcrStatusRequest(
         @NotNull(message = "daOCR is required") Boolean daOCR
+    ) {
+    }
+
+    public record AccessCheckRequest(
+        @NotNull(message = "userId is required") Long userId,
+        @NotNull(message = "documentIds is required") List<Long> documentIds
     ) {
     }
 }

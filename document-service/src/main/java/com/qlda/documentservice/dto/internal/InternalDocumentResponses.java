@@ -53,6 +53,15 @@ public final class InternalDocumentResponses {
     public record UpdateOcrStatusResponse(Long documentId, Boolean daOCR) {
     }
 
+    public record AccessCheckResponse(List<Long> allowedDocumentIds) {
+    }
+
+    public record MyUploadedDocumentCountResponse(Long userId, Long count) {
+    }
+
+    public record TotalDocumentCountResponse(Long count) {
+    }
+
     public record StatisticItemResponse(String label, Long value) {
     }
 

@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -14,7 +15,6 @@ import com.qlda.documentservice.service.InternalDocumentService;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -144,6 +144,24 @@ class InternalDocumentControllerTest {
     }
 
     @Test
+    void checkAccess_shouldReturnSuccess() throws Exception {
+        when(internalDocumentService.checkDocumentAccess(any(InternalDocumentRequests.AccessCheckRequest.class)))
+            .thenReturn(new InternalDocumentResponses.AccessCheckResponse(List.of(1L, 3L, 5L)));
+
+        mockMvc.perform(post("/internal/documents/access-check")
+                .header("Authorization", "Bearer internal-token")
+                .header("X-Service-Name", "ai-service")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"userId":2,"documentIds":[1,2,3,4,5]}
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.message").value("Check document access successfully"))
+            .andExpect(jsonPath("$.data.allowedDocumentIds[0]").value(1L))
+            .andExpect(jsonPath("$.data.allowedDocumentIds[2]").value(5L));
+    }
+
+    @Test
     void getStatistics_shouldReturnSuccess() throws Exception {
         InternalDocumentResponses.InternalDocumentStatisticsResponse statistics = new InternalDocumentResponses.InternalDocumentStatisticsResponse(
             10L,
@@ -157,6 +175,29 @@ class InternalDocumentControllerTest {
         mockMvc.perform(internalGet("/internal/documents/statistics?fromDate=2026-04-01&toDate=2026-04-30&donViId=1&groupBy=status"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.totalDocuments").value(10L));
+    }
+
+    @Test
+    void getMyUploadedCount_shouldReturnSuccess() throws Exception {
+        when(internalDocumentService.getMyUploadedDocumentCount(2L))
+            .thenReturn(new InternalDocumentResponses.MyUploadedDocumentCountResponse(2L, 12L));
+
+        mockMvc.perform(internalGet("/internal/documents/statistics/my-uploaded-count?userId=2"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.message").value("Get my uploaded document count successfully"))
+            .andExpect(jsonPath("$.data.userId").value(2L))
+            .andExpect(jsonPath("$.data.count").value(12L));
+    }
+
+    @Test
+    void getTotalCount_shouldReturnSuccess() throws Exception {
+        when(internalDocumentService.getTotalDocumentCount())
+            .thenReturn(new InternalDocumentResponses.TotalDocumentCountResponse(250L));
+
+        mockMvc.perform(internalGet("/internal/documents/statistics/total-count"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.message").value("Get total document count successfully"))
+            .andExpect(jsonPath("$.data.count").value(250L));
     }
 
     @Test
