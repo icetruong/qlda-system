@@ -53,7 +53,7 @@ public class SecurityConfig {
             .securityContextRepository(NoOpServerSecurityContextRepository.getInstance())
             .authorizeExchange(exchanges -> exchanges
                 .pathMatchers(HttpMethod.OPTIONS).permitAll()
-                .pathMatchers("/api/auth/login", "/api/auth/login/azure").permitAll()
+                .pathMatchers("/api/auth/login/azure", "/api/ai/chatbot/ask").permitAll()
                 .pathMatchers("/api/auth/users/**").hasRole("ADMIN")
                 .anyExchange().authenticated()
             )
