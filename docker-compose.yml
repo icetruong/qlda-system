@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16
+    image: pgvector/pgvector:pg17
     container_name: qlda-postgres
     environment:
       POSTGRES_DB: QLDA
@@ -143,6 +143,31 @@ services:
       INTERNAL_SERVICE_TOKEN: change-me-in-dev
     volumes:
       - workflow-uploads:/app/uploads
+    networks:
+      - qlda-net
+
+  ai-service:
+    build:
+      context: ./ai-service
+    container_name: qlda-ai-service
+    depends_on:
+      - postgres
+      - auth-service
+      - document-service
+      - workflow-service
+    ports:
+      - "8084:8084"
+    environment:
+      SERVER_PORT: 8084
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/QLDA
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: 123456
+      DOCUMENT_SERVICE_BASE_URL: http://document-service:8082
+      WORKFLOW_SERVICE_BASE_URL: http://workflow-service:8083
+      AUTH_SERVICE_BASE_URL: http://auth-service:8081
+      SERVICE_NAME: ai-service
+      INTERNAL_SERVICE_TOKEN: change-me-in-dev
+      GEMINI_API_KEY: 
     networks:
       - qlda-net
 
