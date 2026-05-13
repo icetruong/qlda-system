@@ -69,6 +69,8 @@ services:
       - eureka-server
     ports:
       - "8081:8081"
+    env_file:
+      - .env
     environment:
       SERVER_PORT: 8081
       DB_URL: jdbc:postgresql://postgres:5432/QLDA
@@ -81,6 +83,9 @@ services:
       AUTH_JWT_PRIVATE_KEY: classpath:private.pem
       AUTH_JWT_PUBLIC_KEY: classpath:public.pem
       AUTH_JWT_SECRET: ""
+      AZURE_TENANT_ID: ${AZURE_TENANT_ID:-}
+      AZURE_CLIENT_ID: ${AZURE_CLIENT_ID:-}
+      AZURE_CLIENT_SECRET: ${AZURE_CLIENT_SECRET:-}
     networks:
       - qlda-net
 
