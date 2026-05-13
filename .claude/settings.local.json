@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs grep -l \"webmvc\\\\|AutoConfigureMockMvc\\\\|WebMvcTest\")",
+      "Bash(xargs grep -l \"webmvc\\\\|AutoConfigureMockMvc\\\\|WebMvcTest\\\\|DataJpaTest\\\\|AutoConfigureDataJpa\")"
+    ]
+  }
+}
