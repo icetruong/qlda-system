@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(xargs grep -l \"webmvc\\\\|AutoConfigureMockMvc\\\\|WebMvcTest\")",
-      "Bash(xargs grep -l \"webmvc\\\\|AutoConfigureMockMvc\\\\|WebMvcTest\\\\|DataJpaTest\\\\|AutoConfigureDataJpa\")"
+      "Bash(xargs grep -l \"webmvc\\\\|AutoConfigureMockMvc\\\\|WebMvcTest\\\\|DataJpaTest\\\\|AutoConfigureDataJpa\")",
+      "Bash(docker compose *)",
+      "Bash(docker exec qlda-postgres *)",
+      "Bash(curl -s http://localhost:8761/eureka/apps)",
+      "Bash(curl -s http://localhost:8761/eureka/apps/AUTH-SERVICE)",
+      "Bash(curl *)"
     ]
   }
 }

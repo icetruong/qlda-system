@@ -7,36 +7,38 @@ spring:
       enabled: false
 
     gateway:
-      discovery:
-        locator:
-          enabled: true
-          lower-case-service-id: true
+      server:
+        webflux:
+          discovery:
+            locator:
+              enabled: true
+              lower-case-service-id: true
 
-      routes:
-        - id: auth-service
-          uri: lb://auth-service
-          predicates:
-            - Path=/api/auth/**
+          routes:
+            - id: auth-service
+              uri: lb://auth-service
+              predicates:
+                - Path=/api/auth/**
 
-        - id: ai-service
-          uri: lb://ai-service
-          predicates:
-            - Path=/api/ai/**
+            - id: ai-service
+              uri: lb://ai-service
+              predicates:
+                - Path=/api/ai/**
 
-        - id: document-service
-          uri: lb://document-service
-          predicates:
-            - Path=/api/documents/**
+            - id: document-service
+              uri: lb://document-service
+              predicates:
+                - Path=/api/documents/**
 
-        - id: workflow-service
-          uri: lb://workflow-service
-          predicates:
-            - Path=/api/workflows/**
+            - id: workflow-service
+              uri: lb://workflow-service
+              predicates:
+                - Path=/api/workflows/**
 
-        - id: notification-service
-          uri: lb://notification-service
-          predicates:
-            - Path=/api/notifications/**,/api/audit-logs/**,/api/reports/**
+            - id: notification-service
+              uri: lb://notification-service
+              predicates:
+                - Path=/api/notifications/**,/api/audit-logs/**,/api/reports/**
 
   security:
     oauth2:

@@ -16,6 +16,8 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.StringUtils;
@@ -25,6 +27,8 @@ import org.springframework.web.client.RestClientException;
 
 @Service
 public class AzureAuthService {
+
+    private static final Logger log = LoggerFactory.getLogger(AzureAuthService.class);
 
     private static final String DEFAULT_SCOPE = "openid profile email offline_access User.Read";
     private static final String GRAPH_ME_ENDPOINT = "https://graph.microsoft.com/v1.0/me?$select=id,displayName,mail,userPrincipalName";
@@ -86,6 +90,7 @@ public class AzureAuthService {
                     .retrieve()
                     .body(OAuthTokenResponse.class);
         } catch (RestClientException exception) {
+            log.error("Azure token exchange failed: {}", exception.getMessage(), exception);
             return null;
         }
     }
@@ -115,6 +120,7 @@ public class AzureAuthService {
 
             return new AzureUserInfo(azureAdId, email, username, displayName, true);
         } catch (JwtException exception) {
+            log.warn("id_token validation failed (will fallback to Graph): {}", exception.getMessage());
             return null;
         }
     }
@@ -139,6 +145,7 @@ public class AzureAuthService {
             String displayName = firstNonBlank(profile.displayName(), username);
             return new AzureUserInfo(profile.id().trim(), email, username, displayName, configured);
         } catch (RestClientException exception) {
+            log.error("Graph API call failed: {}", exception.getMessage(), exception);
             return null;
         }
     }
