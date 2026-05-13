@@ -152,6 +152,7 @@ services:
     container_name: qlda-ai-service
     depends_on:
       - postgres
+      - eureka-server
       - auth-service
       - document-service
       - workflow-service
@@ -162,12 +163,14 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/QLDA
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: 123456
+      EUREKA_ENABLED: true
+      EUREKA_SERVER_URL: http://eureka-server:8761/eureka
       DOCUMENT_SERVICE_BASE_URL: http://document-service:8082
       WORKFLOW_SERVICE_BASE_URL: http://workflow-service:8083
       AUTH_SERVICE_BASE_URL: http://auth-service:8081
       SERVICE_NAME: ai-service
       INTERNAL_SERVICE_TOKEN: change-me-in-dev
-      GEMINI_API_KEY: 
+      GEMINI_API_KEY:
     networks:
       - qlda-net
 
@@ -216,6 +219,7 @@ services:
       - document-service
       - workflow-service
       - notification-service
+      - ai-service
     ports:
       - "8080:8080"
     environment:
